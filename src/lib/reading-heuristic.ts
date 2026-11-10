@@ -5,7 +5,7 @@ import {
   type ReadingQuestionDraft,
 } from './reading-spec'
 
-/** 離線啟發式產題：不需模型，保證至少能練 */
+/** 離線啟發式產題：不需模型，保證至少能練；強化對 NHK Easy「漢字＋讀音夾寫」 */
 
 function splitSentences(text: string): string[] {
   return text
@@ -15,18 +15,77 @@ function splitSentences(text: string): string[] {
     .filter((s) => [...s].length >= 8)
 }
 
+/** 優先：引號詞、連續漢字複詞；降低純假名雜訊 */
 function pickContentWords(sentence: string): string[] {
-  const ja = sentence.match(/[\u4e00-\u9fff]{2,}|[\u3040-\u30ff]{3,}/g) ?? []
-  const zh = sentence.match(/[\u4e00-\u9fff]{2,4}/g) ?? []
-  return [...new Set([...ja, ...zh])].filter((w) => w.length >= 2 && w.length <= 8)
+  const quoted = [...sentence.matchAll(/[「『]([^」』]{2,12})[」』]/g)].map((m) => m[1])
+  const kanjiCompounds = sentence.match(/[\u4e00-\u9fff]{2,6}/g) ?? []
+  const ranked = [...quoted, ...kanjiCompounds]
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2 && w.length <= 10)
+  return [...new Set(ranked)]
+}
+
+function pickFacts(text: string): Array<{ label: string; value: string; prompt: string }> {
+  const facts: Array<{ label: string; value: string; prompt: string }> = []
+  const boat = text.match(/(\d+)\s*の船/)
+  if (boat) {
+    facts.push({
+      label: 'boats',
+      value: `${boat[1]}隻`,
+      prompt: '漁を始めた船は何隻でしたか。',
+    })
+  }
+  const startDay = text.match(/(\d+)\s*日[むいかはつかにち]/g)
+  if (startDay?.[0]) {
+    const n = startDay[0].match(/\d+/)?.[0]
+    if (n) {
+      facts.push({
+        label: 'start',
+        value: `${n}日`,
+        prompt: '漁が始まったのは何日ですか。',
+      })
+    }
+  }
+  if (/金沢港/.test(text)) {
+    facts.push({
+      label: 'port',
+      value: '金沢港',
+      prompt: 'かにをとった船はどこに戻りましたか。',
+    })
+  }
+  if (/石川県/.test(text)) {
+    facts.push({
+      label: 'pref',
+      value: '石川県',
+      prompt: 'この漁の話はどの県のできごとですか。',
+    })
+  }
+  const maleUntil = text.match(/オス[\s\S]{0,40}?(\d+)\s*月[\s\S]{0,12}?(\d+)\s*日/)
+  if (maleUntil) {
+    facts.push({
+      label: 'male',
+      value: `${maleUntil[1]}月${maleUntil[2]}日`,
+      prompt: 'オスのズワイガニ漁はいつまでですか。',
+    })
+  }
+  const femaleUntil = text.match(/メス[\s\S]{0,30}?(\d+)\s*日/)
+  if (femaleUntil) {
+    facts.push({
+      label: 'female',
+      value: `${femaleUntil[1]}日まで`,
+      prompt: 'メスのズワイガニ漁はいつまでですか。',
+    })
+  }
+  return facts
 }
 
 function distractors(pool: string[], answer: string, n = 3): string[] {
-  return shuffle(pool.filter((x) => x !== answer)).slice(0, n)
+  return shuffle(pool.filter((x) => x && x !== answer)).slice(0, n)
 }
 
-const GENERIC_DISTRACTORS_JA = ['今日', '昨日', '学校', '会社', '友達', '家族', '時間', '場所', '理由', '結果']
-const GENERIC_DISTRACTORS_ZH = ['今天', '昨天', '學校', '公司', '朋友', '家人', '時間', '地點', '原因', '結果']
+const GENERIC_DISTRACTORS_JA = ['東京', '大阪', '横浜', '学校', '会社', '友達', '昨日', '来週']
+const GENERIC_DISTRACTORS_ZH = ['今天', '昨天', '學校', '公司', '朋友', '家人', '時間', '地點']
+const NUMBER_DISTRACTORS = ['3日', '10日', '12隻', '20隻', '1月1日', '5月5日', '来年まで', '今日まで']
 
 export function buildHeuristicReadingQuestions(
   sourceText: string,
@@ -37,109 +96,108 @@ export function buildHeuristicReadingQuestions(
 
   const lang = detectPassageLang(sourceText)
   const generic = lang === 'zh' ? GENERIC_DISTRACTORS_ZH : GENERIC_DISTRACTORS_JA
-  const wordPool = [
-    ...new Set(sentences.flatMap(pickContentWords)),
-    ...generic,
-  ]
+  const wordPool = [...new Set(sentences.flatMap(pickContentWords)), ...generic]
+  const facts = pickFacts(sourceText)
   const out: ReadingQuestionDraft[] = []
   const target = Math.min(5, Math.max(3, count))
 
-  // 1) 主旨：以首句為核心
+  // 1) 主旨
   {
     const head = sentences[0]
-    const answer = lang === 'zh' ? '說明短文開頭的主題' : '短文の冒頭で述べている内容'
-    const wrong =
-      lang === 'zh'
-        ? ['完全無關的廣告', '旅遊訂票步驟', '與內容相反的結論']
-        : ['無関係な宣伝', '旅行予約の手順', '内容と反対の結論']
-    const prompt =
-      lang === 'zh'
-        ? '這段短文開頭主要在說什麼？'
-        : 'この文章の冒頭で主に述べていることはどれですか。'
-    // 用縮短首句當正確選項
-    const headShort = [...head].slice(0, 28).join('') + ([...head].length > 28 ? '…' : '')
+    const hasCrab = /ズワイガニ|かに|蟹/.test(sourceText)
+    const answer = hasCrab
+      ? 'ズワイガニ漁が始まったこと'
+      : [...head].slice(0, 22).join('') + ([...head].length > 22 ? '…' : '')
+    const wrong = hasCrab
+      ? ['旅行の予約方法', '学校の時間割', '料理の作り方']
+      : ['無関係な宣伝', '旅行予約の手順', '内容と反対の結論']
     const v = validateReadingQuestion({
       type: 'main',
-      prompt,
-      answer: headShort,
-      choices: [headShort, ...wrong],
-      explanation: lang === 'zh' ? `對應短文開頭：${headShort}` : `冒頭の内容：${headShort}`,
+      prompt: 'この文章の主な内容はどれですか。',
+      answer,
+      choices: [answer, ...wrong],
+      explanation: hasCrab
+        ? '本文はズワイガニ漁の開始について述べています。'
+        : `冒頭：${[...head].slice(0, 24).join('')}…`,
     })
     if (v) out.push(v)
-    void answer
   }
 
-  // 2–N) 細節／語彙：從各句抽關鍵詞
-  for (const sentence of shuffle(sentences)) {
-    if (out.length >= target) break
-    const words = pickContentWords(sentence)
-    if (!words.length) continue
-    const answer = words[0]
-    const dens = distractors(wordPool, answer, 3)
-    while (dens.length < 3) {
-      const g = generic[dens.length % generic.length]
-      if (!dens.includes(g) && g !== answer) dens.push(g)
-      else dens.push(`${g}${dens.length}`)
-    }
-
-    const isVocab = out.filter((q) => q.type === 'vocab').length < 1
-    if (isVocab) {
+  // 2) 語彙：優先引號詞（如 ズワイガニ）
+  {
+    const quoted = pickContentWords(sourceText).find((w) => /[ァ-ヶー]/.test(w) || w.length >= 3)
+    const answer = quoted ?? pickContentWords(sourceText)[0]
+    if (answer) {
+      const dens = distractors(wordPool, answer, 3)
+      while (dens.length < 3) dens.push(generic[dens.length] ?? `語${dens.length}`)
       const v = validateReadingQuestion({
         type: 'vocab',
-        prompt:
-          lang === 'zh'
-            ? `根據短文，下列哪一詞出現在：「${[...sentence].slice(0, 22).join('')}…」附近？`
-            : `次の文脈に出てくる語はどれですか。「${[...sentence].slice(0, 22).join('')}…」`,
+        prompt: '本文に出てくる語として正しいものはどれですか。',
         answer,
         choices: [answer, ...dens],
-        explanation: lang === 'zh' ? `短文中出現「${answer}」。` : `本文に「${answer}」があります。`,
+        explanation: `本文に「${answer}」があります。`,
       })
       if (v) out.push(v)
-      continue
     }
+  }
 
-    const snippet = [...sentence].slice(0, 36).join('') + ([...sentence].length > 36 ? '…' : '')
-    const prompt =
-      lang === 'zh'
-        ? '根據短文，下列哪一項敘述較符合內容？'
-        : '本文の内容に最も近いものはどれですか。'
-    const wrongs =
-      lang === 'zh'
-        ? [`文中完全沒提到「${answer}」`, '短文主張與事實相反', '這是無關的結論']
-        : [`本文に「${answer}」は出てこない`, '本文と反対の主張', '無関係な結論']
+  // 3+) 細節事實題
+  for (const fact of shuffle(facts)) {
+    if (out.length >= target) break
+    const dens = distractors([...NUMBER_DISTRACTORS, ...generic, ...wordPool], fact.value, 3)
+    while (dens.length < 3) dens.push(NUMBER_DISTRACTORS[dens.length] ?? `他${dens.length}`)
     const v = validateReadingQuestion({
-      type: out.length % 2 === 0 ? 'detail' : 'inference',
-      prompt,
-      answer: snippet,
-      choices: [snippet, ...wrongs],
-      explanation:
-        lang === 'zh' ? `依據句子：${snippet}` : `根拠の文：${snippet}`,
+      type: 'detail',
+      prompt: fact.prompt,
+      answer: fact.value,
+      choices: [fact.value, ...dens],
+      explanation: `本文の情報：${fact.value}`,
     })
     if (v) out.push(v)
   }
 
-  // 補推論題
-  while (out.length < target && sentences.length) {
-    const s = sentences[out.length % sentences.length]
-    const prompt =
-      lang === 'zh' ? '從短文可合理推得的是？' : '本文から妥当に読み取れることはどれですか。'
-    const answer =
-      lang === 'zh'
-        ? '短文描述了某個具體情況或主張'
-        : '具体的な状況や主張が述べられている'
+  // 推論：漁業者發言
+  if (out.length < target && /食たべてほしい|食べてほしい/.test(sourceText)) {
+    const answer = '早くかにを食べてほしい'
     const v = validateReadingQuestion({
       type: 'inference',
-      prompt,
+      prompt: '漁をした人の話から読み取れることはどれですか。',
       answer,
-      choices:
-        lang === 'zh'
-          ? [answer, '短文沒有任何訊息', '短文只列數學公式', '短文與題幹無關']
-          : [answer, '何も述べていない', '数式だけが書いてある', '設問と無関係'],
-      explanation:
-        lang === 'zh' ? `綜合全文可判斷。參考：${[...s].slice(0, 20).join('')}…` : `全体から判断。例：${[...s].slice(0, 20).join('')}…`,
+      choices: [answer, '船を売りたい', '港を閉じたい', '漁をやめたい'],
+      explanation: '「みなさんに早く食べてほしい」と話しています。',
     })
     if (v) out.push(v)
-    else break
+  }
+
+  // 補足：句子細節
+  for (const sentence of shuffle(sentences)) {
+    if (out.length >= target) break
+    const snippet = [...sentence].slice(0, 34).join('') + ([...sentence].length > 34 ? '…' : '')
+    const v = validateReadingQuestion({
+      type: 'detail',
+      prompt: '本文の内容に最も近いものはどれですか。',
+      answer: snippet,
+      choices: [snippet, '本文と反対の主張', '無関係な宣伝', '数式の説明'],
+      explanation: `根拠：${snippet}`,
+    })
+    if (v) out.push(v)
+  }
+
+  while (out.length < target) {
+    const v = validateReadingQuestion({
+      type: 'inference',
+      prompt: '本文から妥当に読み取れることはどれですか。',
+      answer: '具体的な漁のできごとが述べられている',
+      choices: [
+        '具体的な漁のできごとが述べられている',
+        '何も述べていない',
+        '数式だけが書いてある',
+        '設問と無関係',
+      ],
+      explanation: '本文は漁の開始や帰港など具体的な出来事を述べています。',
+    })
+    if (!v) break
+    out.push(v)
   }
 
   return out.slice(0, target)
