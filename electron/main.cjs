@@ -1,7 +1,32 @@
 const { app, BrowserWindow, shell, ipcMain } = require('electron')
 const path = require('path')
+const {
+  readLibraryFile,
+  writeLibraryFile,
+  resolveLibraryPath,
+} = require('./library-fs.cjs')
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL)
+
+function libraryPath() {
+  return resolveLibraryPath({
+    projectRoot: path.join(__dirname, '..'),
+    userDataDir: app.getPath('userData'),
+    packaged: app.isPackaged,
+  })
+}
+
+ipcMain.handle('library-read', async () => {
+  return readLibraryFile(libraryPath())
+})
+
+ipcMain.handle('library-write', async (_event, payload) => {
+  return writeLibraryFile(libraryPath(), payload ?? {})
+})
+
+ipcMain.handle('library-path', async () => {
+  return libraryPath()
+})
 
 async function googleTranslate({ sl, tl, q }) {
   const target = new URL('https://translate.googleapis.com/translate_a/single')

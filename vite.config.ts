@@ -1,6 +1,103 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Connect, type ViteDevServer } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url))
+const libraryFile = path.join(projectRoot, 'data', 'library.json')
+
+function emptyLibrary() {
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    vocab: [],
+    phrases: [],
+    readingPassages: [],
+    quizBank: [],
+    reviewQueue: [],
+    practiceLog: [],
+    flaggedQuizzes: [],
+  }
+}
+
+function readLibraryFromDisk() {
+  fs.mkdirSync(path.dirname(libraryFile), { recursive: true })
+  if (!fs.existsSync(libraryFile)) {
+    const empty = emptyLibrary()
+    fs.writeFileSync(libraryFile, `${JSON.stringify(empty, null, 2)}\n`, 'utf8')
+    return empty
+  }
+  try {
+    return JSON.parse(fs.readFileSync(libraryFile, 'utf8')) as ReturnType<typeof emptyLibrary>
+  } catch {
+    return emptyLibrary()
+  }
+}
+
+function writeLibraryToDisk(data: unknown) {
+  const base = emptyLibrary()
+  const raw = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+  const snap = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    vocab: Array.isArray(raw.vocab) ? raw.vocab : base.vocab,
+    phrases: Array.isArray(raw.phrases) ? raw.phrases : base.phrases,
+    readingPassages: Array.isArray(raw.readingPassages) ? raw.readingPassages : base.readingPassages,
+    quizBank: Array.isArray(raw.quizBank) ? raw.quizBank : base.quizBank,
+    reviewQueue: Array.isArray(raw.reviewQueue) ? raw.reviewQueue : base.reviewQueue,
+    practiceLog: Array.isArray(raw.practiceLog) ? raw.practiceLog : base.practiceLog,
+    flaggedQuizzes: Array.isArray(raw.flaggedQuizzes) ? raw.flaggedQuizzes : base.flaggedQuizzes,
+  }
+  fs.mkdirSync(path.dirname(libraryFile), { recursive: true })
+  const tmp = `${libraryFile}.tmp`
+  fs.writeFileSync(tmp, `${JSON.stringify(snap, null, 2)}\n`, 'utf8')
+  fs.renameSync(tmp, libraryFile)
+  return snap
+}
+
+function readRequestBody(req: Connect.IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)))
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    req.on('error', reject)
+  })
+}
+
+function attachLibraryApi(server: ViteDevServer) {
+  server.middlewares.use('/api/library', (req, res, next) => {
+    void (async () => {
+      try {
+        if (req.method === 'GET') {
+          const data = readLibraryFromDisk()
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-store')
+          res.end(JSON.stringify({ path: libraryFile, data }))
+          return
+        }
+        if (req.method === 'PUT' || req.method === 'POST') {
+          const text = await readRequestBody(req)
+          const parsed = text ? JSON.parse(text) : {}
+          const data = writeLibraryToDisk(parsed.data ?? parsed)
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-store')
+          res.end(JSON.stringify({ path: libraryFile, data }))
+          return
+        }
+        res.statusCode = 405
+        res.end(JSON.stringify({ error: 'method not allowed' }))
+      } catch (e) {
+        res.statusCode = 500
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })().catch(next)
+  })
+}
 
 async function proxyGoogleTranslate(
   req: import('http').IncomingMessage,
@@ -65,6 +162,15 @@ export default defineConfig({
         })
       },
     },
+    {
+      name: 'jp-leader-library-file',
+      configureServer(server) {
+        attachLibraryApi(server)
+      },
+      configurePreviewServer(server) {
+        attachLibraryApi(server)
+      },
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -97,7 +203,12 @@ export default defineConfig({
         navigateFallback: 'index.html',
         runtimeCaching: [
           {
-            // 大型資料改執行時快取，失敗不阻斷安裝
+            // 題庫 API 絕不快取，否則跨瀏覽器會讀到舊資料
+            urlPattern: /\/api\/library$/i,
+            handler: 'NetworkOnly',
+          },
+          {
+            // 大型靜態資料改執行時快取，失敗不阻斷安裝
             urlPattern: /\/data\/.*\.json$/i,
             handler: 'CacheFirst',
             options: {

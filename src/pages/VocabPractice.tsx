@@ -4,23 +4,27 @@ import { FlagQuestionButton, QuestionBlock } from '../components/FlagQuestionBut
 import { PracticeHeader } from '../components/PracticeHeader'
 import { SpeakButton } from '../components/SpeakButton'
 import { SEED_VOCAB } from '../data/seed-vocab'
+import { ChoiceNotes } from '../components/ChoiceNotes'
 import {
   addVocab,
   bulkAddVocab,
+  clearQuizzes,
   clearVocab,
   countQuizzes,
   listVocab,
   logPractice,
   normalizeEnglishMeanings,
   upsertReviewWrong,
+  VOCAB_QUIZ_MODES,
   type StoredQuiz,
   type VocabEntry,
+  type VocabQuizMode,
 } from '../lib/db'
 import { prepareVocabSession } from '../lib/quiz-bank'
 import { isMostlyEnglish, toZhMeaning } from '../lib/text-lang'
 import { autofillVocab, type VocabFillDirection } from '../lib/vocab-autofill'
+import { syncVocabEntriesQuizzes, syncVocabEntryQuizzes } from '../lib/vocab-quiz-sync'
 
-type PracticeMode = 'ja-meaning' | 'meaning-ja' | 'reading'
 type Tab = 'practice' | 'manage'
 
 export function VocabPractice() {
@@ -28,6 +32,12 @@ export function VocabPractice() {
   const [tab, setTab] = useState<Tab>('practice')
   const [items, setItems] = useState<VocabEntry[]>([])
   const [bankCount, setBankCount] = useState(0)
+  const [modeBankCount, setModeBankCount] = useState(0)
+  const [modeCounts, setModeCounts] = useState<Record<VocabQuizMode, number>>({
+    'ja-meaning': 0,
+    'meaning-ja': 0,
+    reading: 0,
+  })
   const [word, setWord] = useState('')
   const [reading, setReading] = useState('')
   const [meaning, setMeaning] = useState('')
@@ -41,12 +51,27 @@ export function VocabPractice() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'ready' | 'play'>('ready')
-  const [mode, setMode] = useState<PracticeMode>('ja-meaning')
+  const [mode, setMode] = useState<VocabQuizMode>('ja-meaning')
   const [session, setSession] = useState<StoredQuiz[]>([])
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<'ok' | 'bad' | null>(null)
   const [fromCache, setFromCache] = useState(false)
+
+  const refreshBankCounts = useCallback(async () => {
+    const total = await countQuizzes('vocab')
+    setBankCount(total)
+    const next: Record<VocabQuizMode, number> = {
+      'ja-meaning': 0,
+      'meaning-ja': 0,
+      reading: 0,
+    }
+    for (const m of VOCAB_QUIZ_MODES) {
+      next[m] = await countQuizzes('vocab', m)
+    }
+    setModeCounts(next)
+    setModeBankCount(next[mode] ?? 0)
+  }, [mode])
 
   const refresh = useCallback(async () => {
     await normalizeEnglishMeanings(toZhMeaning, isMostlyEnglish)
@@ -61,10 +86,11 @@ export function VocabPractice() {
         })),
       )
       list = await listVocab()
+      await syncVocabEntriesQuizzes(list)
     }
     setItems(list)
-    setBankCount(await countQuizzes('vocab'))
-  }, [])
+    await refreshBankCounts()
+  }, [refreshBankCounts])
 
   useEffect(() => {
     void refresh()
@@ -116,12 +142,13 @@ export function VocabPractice() {
 
   const save = async () => {
     if (!word.trim() || !meaning.trim()) return
-    await addVocab({
+    const entry = await addVocab({
       word: word.trim(),
       reading: reading.trim(),
       meaning: meaning.trim(),
       source: 'manual',
     })
+    await syncVocabEntryQuizzes(entry)
     setWord('')
     setReading('')
     setMeaning('')
@@ -148,7 +175,7 @@ export function VocabPractice() {
       setFeedback(null)
       setFromCache(cached)
       setPhase('play')
-      setBankCount(await countQuizzes('vocab'))
+      await refreshBankCounts()
     } finally {
       setBusy(false)
     }
@@ -169,6 +196,7 @@ export function VocabPractice() {
         answer: current.answer,
         choices: current.choices,
         explanation: current.explanation,
+        choiceExplanations: current.choiceExplanations,
         mode: current.mode,
       })
     }
@@ -210,7 +238,8 @@ export function VocabPractice() {
       {tab === 'practice' && (
         <>
           <p className="muted">
-            {t('vocab.count', { n: items.length })} · {t('quiz.bankCount', { n: bankCount })}
+            {t('vocab.count', { n: items.length })} · {t('quiz.bankCount', { n: bankCount })} ·{' '}
+            {t('vocab.modeBankCount', { n: modeBankCount })}
           </p>
 
           {phase === 'ready' ? (
@@ -257,6 +286,7 @@ export function VocabPractice() {
                     key={current.id}
                     item={{
                       kind: 'vocab',
+                      mode: current.mode,
                       prompt: current.prompt,
                       sentence: current.sentence,
                       answer: current.answer,
@@ -291,6 +321,13 @@ export function VocabPractice() {
                   {feedback === 'bad' && `${t('kana.wrong')} → ${current.answer}`}
                 </div>
                 {feedback && <p className="muted">{current.explanation}</p>}
+                {feedback && (
+                  <ChoiceNotes
+                    answer={current.answer}
+                    selected={selected}
+                    choiceExplanations={current.choiceExplanations}
+                  />
+                )}
               </QuestionBlock>
               <div className="btn-row" style={{ justifyContent: 'center' }}>
                 {!feedback ? (
@@ -312,6 +349,13 @@ export function VocabPractice() {
         <div className="split">
           <div>
             <h3>{t('vocab.add')}</h3>
+            <p className="muted">
+              {t('vocab.modeBanks', {
+                jaMeaning: modeCounts['ja-meaning'],
+                meaningJa: modeCounts['meaning-ja'],
+                reading: modeCounts.reading,
+              })}
+            </p>
             <div className="field">
               <label>
                 {t('vocab.word')}
@@ -417,10 +461,12 @@ export function VocabPractice() {
                 type="button"
                 className="btn btn-ghost"
                 onClick={() => {
-                  void clearVocab().then(() => {
+                  void (async () => {
+                    await clearVocab()
+                    await clearQuizzes('vocab')
                     setMessage(t('vocab.cleared'))
-                    return refresh()
-                  })
+                    await refresh()
+                  })()
                 }}
               >
                 {t('vocab.clear')}

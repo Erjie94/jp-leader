@@ -1,5 +1,19 @@
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { ReadingPassageRecord } from './reading-spec'
+import { flushLibrary, getLibrarySnapshot, replaceLibrary, updateLibrary } from './library-store'
+import { normalizeLibrarySnapshot } from './library-types'
+import {
+  isVocabQuizMode,
+  PHRASE_QUIZ_MODE,
+  VOCAB_QUIZ_MODES,
+  type VocabQuizMode,
+} from './quiz-modes'
+
+export type { VocabQuizMode }
+export { isVocabQuizMode, PHRASE_QUIZ_MODE, VOCAB_QUIZ_MODES }
+export {
+  inferVocabModeFromPrompt,
+  migrateQuizBankModes,
+} from './quiz-modes'
 
 export interface VocabEntry {
   id: string
@@ -28,6 +42,7 @@ export type QuizKind = 'vocab' | 'phrase' | 'reading'
 export interface StoredQuiz {
   id: string
   kind: QuizKind
+  /** vocab：三模式；phrase：blank；reading：main/detail/… */
   mode?: string
   prompt: string
   sentence?: string
@@ -38,6 +53,8 @@ export interface StoredQuiz {
   answer: string
   choices: string[]
   explanation: string
+  /** 各選項註解（正解為何對、錯項為何錯）；key = 選項文字 */
+  choiceExplanations?: Record<string, string>
   source: 'local' | 'model' | 'fallback' | 'builtin'
   createdAt: number
   lastShownAt: number
@@ -52,6 +69,7 @@ export interface ReviewItem {
   answer: string
   choices: string[]
   explanation: string
+  choiceExplanations?: Record<string, string>
   mode?: string
   dueAt: number
   ease: number
@@ -103,87 +121,6 @@ export interface FlaggedQuiz {
   aiReview?: FlaggedAiReviewStored
 }
 
-interface JpLeaderDB extends DBSchema {
-  vocab: {
-    key: string
-    value: VocabEntry
-    /** by-level 僅相容舊庫索引，新資料不再使用級別 */
-    indexes: { 'by-level': string; 'by-word': string }
-  }
-  phrases: {
-    key: string
-    value: PhraseEntry
-    indexes: { 'by-level': string; 'by-phrase': string }
-  }
-  quizBank: {
-    key: string
-    value: StoredQuiz
-    indexes: { 'by-kind': QuizKind; 'by-kind-level': [QuizKind, string] }
-  }
-  reviewQueue: {
-    key: string
-    value: ReviewItem
-    indexes: { 'by-due': number }
-  }
-  practiceLog: {
-    key: string
-    value: PracticeEvent
-    indexes: { 'by-at': number }
-  }
-  flaggedQuizzes: {
-    key: string
-    value: FlaggedQuiz
-    indexes: { 'by-fingerprint': string; 'by-kind': FlaggedKind }
-  }
-  readingPassages: {
-    key: string
-    value: ReadingPassageRecord
-    indexes: { 'by-created': number }
-  }
-}
-
-let dbPromise: Promise<IDBPDatabase<JpLeaderDB>> | null = null
-
-function getDb() {
-  if (!dbPromise) {
-    dbPromise = openDB<JpLeaderDB>('jp-leader', 6, {
-      upgrade(db, oldVersion) {
-        if (oldVersion < 1) {
-          const store = db.createObjectStore('vocab', { keyPath: 'id' })
-          store.createIndex('by-level', 'level')
-          store.createIndex('by-word', 'word')
-        }
-        if (oldVersion < 2) {
-          const quiz = db.createObjectStore('quizBank', { keyPath: 'id' })
-          quiz.createIndex('by-kind', 'kind')
-          quiz.createIndex('by-kind-level', ['kind', 'level'])
-        }
-        if (oldVersion < 3) {
-          const review = db.createObjectStore('reviewQueue', { keyPath: 'id' })
-          review.createIndex('by-due', 'dueAt')
-          const log = db.createObjectStore('practiceLog', { keyPath: 'id' })
-          log.createIndex('by-at', 'at')
-        }
-        if (oldVersion < 4) {
-          const flagged = db.createObjectStore('flaggedQuizzes', { keyPath: 'id' })
-          flagged.createIndex('by-fingerprint', 'fingerprint')
-          flagged.createIndex('by-kind', 'kind')
-        }
-        if (oldVersion < 5) {
-          const phrases = db.createObjectStore('phrases', { keyPath: 'id' })
-          phrases.createIndex('by-level', 'level')
-          phrases.createIndex('by-phrase', 'phrase')
-        }
-        if (oldVersion < 6) {
-          const reading = db.createObjectStore('readingPassages', { keyPath: 'id' })
-          reading.createIndex('by-created', 'createdAt')
-        }
-      },
-    })
-  }
-  return dbPromise
-}
-
 export function quizFingerprint(input: {
   kind: string
   prompt: string
@@ -191,10 +128,12 @@ export function quizFingerprint(input: {
   sentence?: string
   passage?: string
   choices?: string[]
+  mode?: string
 }): string {
-  const choices = (input.choices ?? []).join('/')
+  const choices = (input.choices ?? []).slice().sort().join('/')
   return [
     input.kind,
+    (input.mode ?? '').trim(),
     input.prompt.trim(),
     input.answer.trim(),
     (input.sentence ?? '').trim(),
@@ -203,167 +142,173 @@ export function quizFingerprint(input: {
   ].join('|')
 }
 
+function withoutLevel<T extends object>(row: T): T {
+  if (!row || typeof row !== 'object' || !('level' in row)) return row
+  const { level: _removed, ...rest } = row as T & { level?: unknown }
+  return rest as T
+}
+
 export async function listVocab(): Promise<VocabEntry[]> {
-  const db = await getDb()
-  return db.getAll('vocab')
+  const snap = await getLibrarySnapshot()
+  return snap.vocab.map(withoutLevel)
 }
 
 export async function addVocab(entry: Omit<VocabEntry, 'id' | 'createdAt'>): Promise<VocabEntry> {
-  const db = await getDb()
   const record: VocabEntry = {
     ...entry,
     id: crypto.randomUUID(),
     createdAt: Date.now(),
   }
-  await db.put('vocab', record)
+  await updateLibrary((draft) => {
+    draft.vocab.push(record)
+  })
   return record
 }
 
 export async function bulkAddVocab(
   entries: Omit<VocabEntry, 'id' | 'createdAt'>[],
 ): Promise<number> {
-  const db = await getDb()
-  const existing = await db.getAll('vocab')
-  const byKey = new Map(existing.map((e) => [`${e.word}|${e.reading}`, e]))
   let added = 0
-  const tx = db.transaction('vocab', 'readwrite')
-  for (const entry of entries) {
-    const key = `${entry.word}|${entry.reading}`
-    const prev = byKey.get(key)
-    if (prev) {
-      if (entry.meaning && entry.meaning !== prev.meaning) {
-        await tx.store.put({ ...prev, meaning: entry.meaning })
+  await updateLibrary((draft) => {
+    const byKey = new Map(draft.vocab.map((e) => [`${e.word}|${e.reading}`, e]))
+    for (const entry of entries) {
+      const key = `${entry.word}|${entry.reading}`
+      const prev = byKey.get(key)
+      if (prev) {
+        if (entry.meaning && entry.meaning !== prev.meaning) {
+          prev.meaning = entry.meaning
+        }
+        continue
       }
-      continue
+      const record: VocabEntry = {
+        ...entry,
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+      }
+      byKey.set(key, record)
+      draft.vocab.push(record)
+      added += 1
     }
-    const record = {
-      ...entry,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-    }
-    byKey.set(key, record)
-    await tx.store.put(record)
-    added += 1
-  }
-  await tx.done
+  })
   return added
 }
 
 export async function clearVocab(): Promise<void> {
-  const db = await getDb()
-  await db.clear('vocab')
+  await updateLibrary((draft) => {
+    draft.vocab = []
+  })
 }
 
 export async function listPhrases(): Promise<PhraseEntry[]> {
-  const db = await getDb()
-  return db.getAll('phrases')
+  const snap = await getLibrarySnapshot()
+  return snap.phrases.map(withoutLevel)
 }
 
 export async function addPhrase(
   entry: Omit<PhraseEntry, 'id' | 'createdAt'>,
 ): Promise<PhraseEntry> {
-  const db = await getDb()
   const record: PhraseEntry = {
     ...entry,
     id: crypto.randomUUID(),
     createdAt: Date.now(),
   }
-  await db.put('phrases', record)
+  await updateLibrary((draft) => {
+    draft.phrases.push(record)
+  })
   return record
 }
 
 export async function bulkAddPhrases(
   entries: Omit<PhraseEntry, 'id' | 'createdAt'>[],
 ): Promise<number> {
-  const db = await getDb()
-  const existing = await db.getAll('phrases')
-  const byKey = new Map(existing.map((e) => [`${e.phrase}|${e.blankWord}`, e]))
   let added = 0
-  const tx = db.transaction('phrases', 'readwrite')
-  for (const entry of entries) {
-    const key = `${entry.phrase}|${entry.blankWord}`
-    if (byKey.has(key)) continue
-    const record = {
-      ...entry,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
+  await updateLibrary((draft) => {
+    const byKey = new Map(draft.phrases.map((e) => [`${e.phrase}|${e.blankWord}`, e]))
+    for (const entry of entries) {
+      const key = `${entry.phrase}|${entry.blankWord}`
+      if (byKey.has(key)) continue
+      const record: PhraseEntry = {
+        ...entry,
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+      }
+      byKey.set(key, record)
+      draft.phrases.push(record)
+      added += 1
     }
-    byKey.set(key, record)
-    await tx.store.put(record)
-    added += 1
-  }
-  await tx.done
+  })
   return added
 }
 
 export async function clearPhrases(): Promise<void> {
-  const db = await getDb()
-  await db.clear('phrases')
+  await updateLibrary((draft) => {
+    draft.phrases = []
+  })
 }
 
 export async function listReadingPassages(): Promise<ReadingPassageRecord[]> {
-  const db = await getDb()
-  const list = await db.getAllFromIndex('readingPassages', 'by-created')
-  return list.reverse()
+  const snap = await getLibrarySnapshot()
+  return [...snap.readingPassages].sort((a, b) => b.createdAt - a.createdAt)
 }
 
 export async function getReadingPassage(id: string): Promise<ReadingPassageRecord | undefined> {
-  const db = await getDb()
-  return db.get('readingPassages', id)
+  const snap = await getLibrarySnapshot()
+  return snap.readingPassages.find((r) => r.id === id)
 }
 
 export async function addReadingPassage(
   entry: Omit<ReadingPassageRecord, 'id' | 'createdAt' | 'lastPracticedAt'>,
 ): Promise<ReadingPassageRecord> {
-  const db = await getDb()
   const record: ReadingPassageRecord = {
     ...entry,
     id: crypto.randomUUID(),
     createdAt: Date.now(),
     lastPracticedAt: 0,
   }
-  await db.put('readingPassages', record)
+  await updateLibrary((draft) => {
+    draft.readingPassages.push(record)
+  })
   return record
 }
 
 export async function touchReadingPassagePracticed(id: string): Promise<void> {
-  const db = await getDb()
-  const row = await db.get('readingPassages', id)
-  if (!row) return
-  await db.put('readingPassages', { ...row, lastPracticedAt: Date.now() })
+  await updateLibrary((draft) => {
+    const row = draft.readingPassages.find((r) => r.id === id)
+    if (row) row.lastPracticedAt = Date.now()
+  })
 }
 
 export async function deleteReadingPassage(id: string): Promise<void> {
-  const db = await getDb()
-  await db.delete('readingPassages', id)
+  await updateLibrary((draft) => {
+    draft.readingPassages = draft.readingPassages.filter((r) => r.id !== id)
+  })
 }
 
 export async function clearReadingPassages(): Promise<void> {
-  const db = await getDb()
-  await db.clear('readingPassages')
+  await updateLibrary((draft) => {
+    draft.readingPassages = []
+  })
 }
 
 export async function countReadingPassages(): Promise<number> {
-  const db = await getDb()
-  return db.count('readingPassages')
+  const snap = await getLibrarySnapshot()
+  return snap.readingPassages.length
 }
 
 export async function normalizeEnglishMeanings(
   translate: (raw: string) => string,
   isEnglish: (raw: string) => boolean,
 ): Promise<number> {
-  const db = await getDb()
-  const all = await db.getAll('vocab')
   let changed = 0
-  const tx = db.transaction('vocab', 'readwrite')
-  for (const entry of all) {
-    if (!isEnglish(entry.meaning)) continue
-    const next = translate(entry.meaning)
-    if (!next || isEnglish(next) || next === entry.meaning) continue
-    await tx.store.put({ ...entry, meaning: next })
-    changed += 1
-  }
-  await tx.done
+  await updateLibrary((draft) => {
+    for (const entry of draft.vocab) {
+      if (!isEnglish(entry.meaning)) continue
+      const next = translate(entry.meaning)
+      if (!next || isEnglish(next) || next === entry.meaning) continue
+      entry.meaning = next
+      changed += 1
+    }
+  })
   return changed
 }
 
@@ -372,34 +317,31 @@ export async function updateVocabMeaningsByWord(
 ): Promise<number> {
   if (!updates.length) return 0
   const map = new Map(updates.map((u) => [u.word, u]))
-  const db = await getDb()
-  const all = await db.getAll('vocab')
   let changed = 0
-  const tx = db.transaction('vocab', 'readwrite')
-  for (const entry of all) {
-    const u = map.get(entry.word)
-    if (!u) continue
-    const nextReading = u.reading && !entry.reading ? u.reading : entry.reading
-    const nextMeaning = u.meaning || entry.meaning
-    if (nextMeaning === entry.meaning && nextReading === entry.reading) continue
-    await tx.store.put({
-      ...entry,
-      meaning: nextMeaning,
-      reading: nextReading,
-    })
-    changed += 1
-  }
-  await tx.done
+  await updateLibrary((draft) => {
+    for (const entry of draft.vocab) {
+      const u = map.get(entry.word)
+      if (!u) continue
+      const nextReading = u.reading && !entry.reading ? u.reading : entry.reading
+      const nextMeaning = u.meaning || entry.meaning
+      if (nextMeaning === entry.meaning && nextReading === entry.reading) continue
+      entry.meaning = nextMeaning
+      entry.reading = nextReading
+      changed += 1
+    }
+  })
   return changed
 }
 
-export async function listQuizzes(kind: QuizKind): Promise<StoredQuiz[]> {
-  const db = await getDb()
-  return db.getAllFromIndex('quizBank', 'by-kind', kind)
+export async function listQuizzes(kind: QuizKind, mode?: string): Promise<StoredQuiz[]> {
+  const snap = await getLibrarySnapshot()
+  return snap.quizBank
+    .filter((q) => q.kind === kind && (mode ? q.mode === mode : true))
+    .map(withoutLevel)
 }
 
-export async function countQuizzes(kind: QuizKind): Promise<number> {
-  const list = await listQuizzes(kind)
+export async function countQuizzes(kind: QuizKind, mode?: string): Promise<number> {
+  const list = await listQuizzes(kind, mode)
   return list.length
 }
 
@@ -413,25 +355,23 @@ export async function saveQuizzes(
   items: Array<Omit<StoredQuiz, 'id' | 'createdAt' | 'lastShownAt' | 'showCount'>>,
   _opts?: { allowDuplicates?: boolean },
 ): Promise<number> {
-  const db = await getDb()
-  const existing = await db.getAll('quizBank')
-  const seen = new Set(existing.map(quizDedupeKey))
   let added = 0
-  const tx = db.transaction('quizBank', 'readwrite')
-  for (const item of items) {
-    const key = quizDedupeKey(item)
-    if (seen.has(key)) continue
-    seen.add(key)
-    await tx.store.put({
-      ...item,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-      lastShownAt: 0,
-      showCount: 0,
-    })
-    added += 1
-  }
-  await tx.done
+  await updateLibrary((draft) => {
+    const seen = new Set(draft.quizBank.map(quizDedupeKey))
+    for (const item of items) {
+      const key = quizDedupeKey(item)
+      if (seen.has(key)) continue
+      seen.add(key)
+      draft.quizBank.push({
+        ...item,
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        lastShownAt: 0,
+        showCount: 0,
+      })
+      added += 1
+    }
+  })
   return added
 }
 
@@ -461,8 +401,9 @@ export async function drawQuizzes(
 }
 
 export async function deleteQuizById(id: string): Promise<void> {
-  const db = await getDb()
-  await db.delete('quizBank', id)
+  await updateLibrary((draft) => {
+    draft.quizBank = draft.quizBank.filter((q) => q.id !== id)
+  })
 }
 
 let flaggedCache: { ids: Set<string>; fps: Set<string>; at: number } | null = null
@@ -483,14 +424,13 @@ function invalidateFlaggedCache() {
 }
 
 export async function listFlaggedQuizzes(): Promise<FlaggedQuiz[]> {
-  const db = await getDb()
-  const list = await db.getAll('flaggedQuizzes')
-  return list.sort((a, b) => b.flaggedAt - a.flaggedAt)
+  const snap = await getLibrarySnapshot()
+  return [...snap.flaggedQuizzes].sort((a, b) => b.flaggedAt - a.flaggedAt)
 }
 
 export async function countFlaggedQuizzes(): Promise<number> {
-  const db = await getDb()
-  return db.count('flaggedQuizzes')
+  const snap = await getLibrarySnapshot()
+  return snap.flaggedQuizzes.length
 }
 
 export async function flagQuizItem(input: {
@@ -501,14 +441,14 @@ export async function flagQuizItem(input: {
   answer: string
   choices: string[]
   explanation?: string
+  mode?: string
   quizId?: string
 }): Promise<FlaggedQuiz> {
-  const db = await getDb()
   const fingerprint = quizFingerprint(input)
-  const existing = await db.getAllFromIndex('flaggedQuizzes', 'by-fingerprint', fingerprint)
-  if (existing[0]) {
+  const existing = (await listFlaggedQuizzes()).find((f) => f.fingerprint === fingerprint)
+  if (existing) {
     invalidateFlaggedCache()
-    return existing[0]
+    return existing
   }
   const row: FlaggedQuiz = {
     id: crypto.randomUUID(),
@@ -523,32 +463,37 @@ export async function flagQuizItem(input: {
     quizId: input.quizId,
     flaggedAt: Date.now(),
   }
-  await db.put('flaggedQuizzes', row)
+  await updateLibrary((draft) => {
+    draft.flaggedQuizzes.push(row)
+  })
   invalidateFlaggedCache()
   return row
 }
 
 /** 從審視清單移除標記（之後可再出現於練習） */
 export async function unflagQuizItem(id: string): Promise<void> {
-  const db = await getDb()
-  await db.delete('flaggedQuizzes', id)
+  await updateLibrary((draft) => {
+    draft.flaggedQuizzes = draft.flaggedQuizzes.filter((f) => f.id !== id)
+  })
   invalidateFlaggedCache()
 }
 
 /** 刪除標記，並若有題庫 id 則一併刪除題庫題目 */
 export async function discardFlaggedQuiz(id: string): Promise<void> {
-  const db = await getDb()
-  const row = await db.get('flaggedQuizzes', id)
-  if (row?.quizId) {
-    await db.delete('quizBank', row.quizId)
-  }
-  await db.delete('flaggedQuizzes', id)
+  await updateLibrary((draft) => {
+    const row = draft.flaggedQuizzes.find((f) => f.id === id)
+    if (row?.quizId) {
+      draft.quizBank = draft.quizBank.filter((q) => q.id !== row.quizId)
+    }
+    draft.flaggedQuizzes = draft.flaggedQuizzes.filter((f) => f.id !== id)
+  })
   invalidateFlaggedCache()
 }
 
 export async function clearAllFlaggedQuizzes(): Promise<void> {
-  const db = await getDb()
-  await db.clear('flaggedQuizzes')
+  await updateLibrary((draft) => {
+    draft.flaggedQuizzes = []
+  })
   invalidateFlaggedCache()
 }
 
@@ -556,10 +501,10 @@ export async function saveFlaggedAiReview(
   id: string,
   review: FlaggedAiReviewStored,
 ): Promise<void> {
-  const db = await getDb()
-  const row = await db.get('flaggedQuizzes', id)
-  if (!row) return
-  await db.put('flaggedQuizzes', { ...row, aiReview: review })
+  await updateLibrary((draft) => {
+    const row = draft.flaggedQuizzes.find((f) => f.id === id)
+    if (row) row.aiReview = review
+  })
 }
 
 /** 將 AI「整題」修正寫回題庫；預設並取消標記 */
@@ -568,52 +513,46 @@ export async function updateQuizFromFlagFix(
   fixed: NonNullable<FlaggedAiReviewStored['fixed']>,
   opts?: { unflag?: boolean },
 ): Promise<void> {
-  const db = await getDb()
-  if (item.quizId) {
-    const q = await db.get('quizBank', item.quizId)
-    if (q) {
-      await db.put('quizBank', {
-        ...q,
-        prompt: fixed.prompt ?? q.prompt,
-        sentence: fixed.sentence ?? q.sentence,
-        passage: fixed.passage ?? q.passage,
-        answer: fixed.answer ?? q.answer,
-        choices: fixed.choices ?? q.choices,
-        explanation: fixed.explanation ?? q.explanation,
-      })
+  await updateLibrary((draft) => {
+    if (item.quizId) {
+      const q = draft.quizBank.find((x) => x.id === item.quizId)
+      if (q) {
+        q.prompt = fixed.prompt ?? q.prompt
+        q.sentence = fixed.sentence ?? q.sentence
+        q.passage = fixed.passage ?? q.passage
+        q.answer = fixed.answer ?? q.answer
+        q.choices = fixed.choices ?? q.choices
+        q.explanation = fixed.explanation ?? q.explanation
+      }
     }
-  }
-  if (opts?.unflag !== false) {
-    await db.delete('flaggedQuizzes', item.id)
-    invalidateFlaggedCache()
-  } else {
-    const row = await db.get('flaggedQuizzes', item.id)
-    if (row) {
-      const nextPrompt = fixed.prompt ?? row.prompt
-      const nextAnswer = fixed.answer ?? row.answer
-      const nextSentence = fixed.sentence ?? row.sentence
-      const nextPassage = fixed.passage ?? row.passage
-      const nextChoices = fixed.choices ?? row.choices
-      await db.put('flaggedQuizzes', {
-        ...row,
-        prompt: nextPrompt,
-        sentence: nextSentence,
-        passage: nextPassage,
-        answer: nextAnswer,
-        choices: nextChoices,
-        explanation: fixed.explanation ?? row.explanation,
-        fingerprint: quizFingerprint({
+    if (opts?.unflag !== false) {
+      draft.flaggedQuizzes = draft.flaggedQuizzes.filter((f) => f.id !== item.id)
+    } else {
+      const row = draft.flaggedQuizzes.find((f) => f.id === item.id)
+      if (row) {
+        const nextPrompt = fixed.prompt ?? row.prompt
+        const nextAnswer = fixed.answer ?? row.answer
+        const nextSentence = fixed.sentence ?? row.sentence
+        const nextPassage = fixed.passage ?? row.passage
+        const nextChoices = fixed.choices ?? row.choices
+        row.prompt = nextPrompt
+        row.sentence = nextSentence
+        row.passage = nextPassage
+        row.answer = nextAnswer
+        row.choices = nextChoices
+        row.explanation = fixed.explanation ?? row.explanation
+        row.fingerprint = quizFingerprint({
           kind: row.kind,
           prompt: nextPrompt,
           answer: nextAnswer,
           sentence: nextSentence,
           passage: nextPassage,
           choices: nextChoices,
-        }),
-      })
-      invalidateFlaggedCache()
+        })
+      }
     }
-  }
+  })
+  invalidateFlaggedCache()
 }
 
 export async function isQuizFlagged(input: {
@@ -623,6 +562,7 @@ export async function isQuizFlagged(input: {
   sentence?: string
   passage?: string
   choices?: string[]
+  mode?: string
   quizId?: string
 }): Promise<boolean> {
   const { ids, fps } = await getFlaggedAvoidSets()
@@ -632,35 +572,33 @@ export async function isQuizFlagged(input: {
 
 export async function markQuizzesShown(ids: string[]): Promise<void> {
   if (!ids.length) return
-  const db = await getDb()
   const now = Date.now()
-  const tx = db.transaction('quizBank', 'readwrite')
-  for (const id of ids) {
-    const q = await tx.store.get(id)
-    if (!q) continue
-    await tx.store.put({
-      ...q,
-      lastShownAt: now,
-      showCount: q.showCount + 1,
+  const idSet = new Set(ids)
+  await updateLibrary((draft) => {
+    for (const q of draft.quizBank) {
+      if (!idSet.has(q.id)) continue
+      q.lastShownAt = now
+      q.showCount += 1
+    }
+  })
+}
+
+export async function clearQuizzes(kind?: QuizKind, mode?: string): Promise<void> {
+  await updateLibrary((draft) => {
+    if (!kind) {
+      draft.quizBank = []
+      return
+    }
+    draft.quizBank = draft.quizBank.filter((q) => {
+      if (q.kind !== kind) return true
+      if (mode && q.mode !== mode) return true
+      return false
     })
-  }
-  await tx.done
+  })
 }
 
-export async function clearQuizzes(kind?: QuizKind): Promise<void> {
-  const db = await getDb()
-  if (!kind) {
-    await db.clear('quizBank')
-    return
-  }
-  const list = await listQuizzes(kind)
-  const tx = db.transaction('quizBank', 'readwrite')
-  for (const q of list) await tx.store.delete(q.id)
-  await tx.done
-}
-
-function reviewKey(kind: string, prompt: string, answer: string) {
-  return `${kind}|${prompt}|${answer}`
+function reviewKey(kind: string, prompt: string, answer: string, mode?: string) {
+  return `${kind}|${mode ?? ''}|${prompt}|${answer}`
 }
 
 export async function upsertReviewWrong(
@@ -668,57 +606,59 @@ export async function upsertReviewWrong(
     id?: string
   },
 ): Promise<void> {
-  const db = await getDb()
-  const all = await db.getAll('reviewQueue')
-  const key = reviewKey(item.kind, item.prompt, item.answer)
-  const existing = all.find((r) => reviewKey(r.kind, r.prompt, r.answer) === key)
   const now = Date.now()
   const day = 24 * 60 * 60 * 1000
-  if (existing) {
-    await db.put('reviewQueue', {
-      ...existing,
-      ...item,
-      id: existing.id,
-      wrongCount: existing.wrongCount + 1,
-      ease: Math.max(1.3, existing.ease - 0.2),
-      dueAt: now + day,
-      updatedAt: now,
-    })
-  } else {
-    await db.put('reviewQueue', {
-      ...item,
-      id: crypto.randomUUID(),
-      wrongCount: 1,
-      rightCount: 0,
-      ease: 2.5,
-      dueAt: now + day,
-      updatedAt: now,
-    })
-  }
+  await updateLibrary((draft) => {
+    const key = reviewKey(item.kind, item.prompt, item.answer, item.mode)
+    const existing = draft.reviewQueue.find(
+      (r) => reviewKey(r.kind, r.prompt, r.answer, r.mode) === key,
+    )
+    if (existing) {
+      Object.assign(existing, item, {
+        id: existing.id,
+        wrongCount: existing.wrongCount + 1,
+        ease: Math.max(1.3, existing.ease - 0.2),
+        dueAt: now + day,
+        updatedAt: now,
+      })
+    } else {
+      draft.reviewQueue.push({
+        ...item,
+        id: crypto.randomUUID(),
+        wrongCount: 1,
+        rightCount: 0,
+        ease: 2.5,
+        dueAt: now + day,
+        updatedAt: now,
+      })
+    }
+  })
 }
 
 export async function markReviewCorrect(id: string): Promise<void> {
-  const db = await getDb()
-  const item = await db.get('reviewQueue', id)
-  if (!item) return
   const now = Date.now()
   const day = 24 * 60 * 60 * 1000
-  const nextEase = Math.min(3.0, item.ease + 0.15)
-  const intervalDays = item.rightCount === 0 ? 3 : item.rightCount === 1 ? 7 : Math.round(7 * nextEase)
-  await db.put('reviewQueue', {
-    ...item,
-    rightCount: item.rightCount + 1,
-    ease: nextEase,
-    dueAt: now + intervalDays * day,
-    updatedAt: now,
+  await updateLibrary((draft) => {
+    const item = draft.reviewQueue.find((r) => r.id === id)
+    if (!item) return
+    const nextEase = Math.min(3.0, item.ease + 0.15)
+    const intervalDays =
+      item.rightCount === 0 ? 3 : item.rightCount === 1 ? 7 : Math.round(7 * nextEase)
+    item.rightCount += 1
+    item.ease = nextEase
+    item.dueAt = now + intervalDays * day
+    item.updatedAt = now
   })
 }
 
 export async function listDueReviews(limit = 20): Promise<ReviewItem[]> {
-  const db = await getDb()
-  const all = await db.getAllFromIndex('reviewQueue', 'by-due')
+  const snap = await getLibrarySnapshot()
   const now = Date.now()
-  return all.filter((r) => r.dueAt <= now).slice(0, limit)
+  return [...snap.reviewQueue]
+    .filter((r) => r.dueAt <= now)
+    .sort((a, b) => a.dueAt - b.dueAt)
+    .slice(0, limit)
+    .map(withoutLevel)
 }
 
 export async function countDueReviews(): Promise<number> {
@@ -728,19 +668,19 @@ export async function countDueReviews(): Promise<number> {
 export async function logPractice(
   event: Omit<PracticeEvent, 'id' | 'at'> & { at?: number },
 ): Promise<void> {
-  const db = await getDb()
-  await db.put('practiceLog', {
-    ...event,
-    id: crypto.randomUUID(),
-    at: event.at ?? Date.now(),
+  await updateLibrary((draft) => {
+    draft.practiceLog.push({
+      ...event,
+      id: crypto.randomUUID(),
+      at: event.at ?? Date.now(),
+    })
   })
 }
 
 export async function getPracticeStats(days = 7) {
-  const db = await getDb()
+  const snap = await getLibrarySnapshot()
   const since = Date.now() - days * 24 * 60 * 60 * 1000
-  const all = await db.getAllFromIndex('practiceLog', 'by-at')
-  const recent = all.filter((e) => e.at >= since)
+  const recent = snap.practiceLog.filter((e) => e.at >= since)
   const total = recent.length
   const correct = recent.filter((e) => e.correct).length
   const byModule: Record<string, number> = {}
@@ -755,24 +695,19 @@ export async function getPracticeStats(days = 7) {
   }
 }
 
-function withoutLevel<T extends object>(row: T): T {
-  if (!row || typeof row !== 'object' || !('level' in row)) return row
-  const { level: _removed, ...rest } = row as T & { level?: unknown }
-  return rest as T
-}
-
 export async function exportAllData() {
-  const db = await getDb()
+  await flushLibrary()
+  const snap = await getLibrarySnapshot()
   return {
-    version: 7,
+    version: 8,
     exportedAt: new Date().toISOString(),
-    vocab: (await db.getAll('vocab')).map(withoutLevel),
-    phrases: (await db.getAll('phrases')).map(withoutLevel),
-    readingPassages: await db.getAll('readingPassages'),
-    quizBank: (await db.getAll('quizBank')).map(withoutLevel),
-    reviewQueue: (await db.getAll('reviewQueue')).map(withoutLevel),
-    practiceLog: (await db.getAll('practiceLog')).map(withoutLevel),
-    flaggedQuizzes: (await db.getAll('flaggedQuizzes')).map(withoutLevel),
+    vocab: snap.vocab.map(withoutLevel),
+    phrases: snap.phrases.map(withoutLevel),
+    readingPassages: snap.readingPassages,
+    quizBank: snap.quizBank.map(withoutLevel),
+    reviewQueue: snap.reviewQueue.map(withoutLevel),
+    practiceLog: snap.practiceLog.map(withoutLevel),
+    flaggedQuizzes: snap.flaggedQuizzes.map(withoutLevel),
   }
 }
 
@@ -785,41 +720,40 @@ export async function importAllData(data: {
   practiceLog?: PracticeEvent[]
   flaggedQuizzes?: FlaggedQuiz[]
 }): Promise<void> {
-  const db = await getDb()
-  if (data.vocab?.length) {
-    const tx = db.transaction('vocab', 'readwrite')
-    for (const v of data.vocab) await tx.store.put(withoutLevel(v))
-    await tx.done
-  }
-  if (data.phrases?.length) {
-    const tx = db.transaction('phrases', 'readwrite')
-    for (const p of data.phrases) await tx.store.put(withoutLevel(p))
-    await tx.done
-  }
-  if (data.readingPassages?.length) {
-    const tx = db.transaction('readingPassages', 'readwrite')
-    for (const r of data.readingPassages) await tx.store.put(r)
-    await tx.done
-  }
-  if (data.quizBank?.length) {
-    const tx = db.transaction('quizBank', 'readwrite')
-    for (const q of data.quizBank) await tx.store.put(withoutLevel(q))
-    await tx.done
-  }
-  if (data.reviewQueue?.length) {
-    const tx = db.transaction('reviewQueue', 'readwrite')
-    for (const r of data.reviewQueue) await tx.store.put(withoutLevel(r))
-    await tx.done
-  }
-  if (data.practiceLog?.length) {
-    const tx = db.transaction('practiceLog', 'readwrite')
-    for (const p of data.practiceLog) await tx.store.put(withoutLevel(p))
-    await tx.done
-  }
-  if (data.flaggedQuizzes?.length) {
-    const tx = db.transaction('flaggedQuizzes', 'readwrite')
-    for (const f of data.flaggedQuizzes) await tx.store.put(withoutLevel(f))
-    await tx.done
-    invalidateFlaggedCache()
-  }
+  const current = await getLibrarySnapshot()
+  const next = normalizeLibrarySnapshot({
+    ...current,
+    vocab: data.vocab?.length
+      ? mergeById(current.vocab, data.vocab.map(withoutLevel))
+      : current.vocab,
+    phrases: data.phrases?.length
+      ? mergeById(current.phrases, data.phrases.map(withoutLevel))
+      : current.phrases,
+    readingPassages: data.readingPassages?.length
+      ? mergeById(current.readingPassages, data.readingPassages)
+      : current.readingPassages,
+    quizBank: data.quizBank?.length
+      ? mergeById(current.quizBank, data.quizBank.map(withoutLevel))
+      : current.quizBank,
+    reviewQueue: data.reviewQueue?.length
+      ? mergeById(current.reviewQueue, data.reviewQueue.map(withoutLevel))
+      : current.reviewQueue,
+    practiceLog: data.practiceLog?.length
+      ? mergeById(current.practiceLog, data.practiceLog.map(withoutLevel))
+      : current.practiceLog,
+    flaggedQuizzes: data.flaggedQuizzes?.length
+      ? mergeById(current.flaggedQuizzes, data.flaggedQuizzes.map(withoutLevel))
+      : current.flaggedQuizzes,
+  })
+  await replaceLibrary(next)
+  invalidateFlaggedCache()
 }
+
+function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] {
+  const map = new Map(existing.map((x) => [x.id, x]))
+  for (const row of incoming) map.set(row.id, row)
+  return [...map.values()]
+}
+
+/** 供設定頁顯示資料檔路徑 */
+export { getLibraryStatus, flushLibrary } from './library-store'

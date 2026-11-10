@@ -9,11 +9,13 @@ import {
   clearAllFlaggedQuizzes,
   discardFlaggedQuiz,
   exportAllData,
+  getLibraryStatus,
   importAllData,
   listFlaggedQuizzes,
   unflagQuizItem,
   type FlaggedQuiz,
 } from '../lib/db'
+import type { LibraryInfo } from '../lib/library-types'
 import { applyFlagAiFix, reviewFlaggedWithAi } from '../lib/flag-ai-review'
 import { getLoadedModelId, isModelReady } from '../lib/llm'
 import { AVAILABLE_MODELS, getModelOption, modelSupportsQuiz } from '../lib/models'
@@ -33,6 +35,7 @@ export function Settings() {
   const model = useModel()
   const fileRef = useRef<HTMLInputElement>(null)
   const [backupMsg, setBackupMsg] = useState('')
+  const [libraryInfo, setLibraryInfo] = useState<LibraryInfo | null>(null)
   const [genBusy, setGenBusy] = useState(false)
   const [genMsg, setGenMsg] = useState('')
   const [online] = useState(() => navigator.onLine)
@@ -50,6 +53,10 @@ export function Settings() {
   useEffect(() => {
     void refreshFlagged()
   }, [refreshFlagged])
+
+  useEffect(() => {
+    void getLibraryStatus().then(setLibraryInfo)
+  }, [])
 
   const ensureModelForFlag = async () => {
     if (!isModelReady() || getLoadedModelId() !== settings.modelId) {
@@ -117,6 +124,7 @@ export function Settings() {
       const text = await file.text()
       const data = JSON.parse(text) as Parameters<typeof importAllData>[0]
       await importAllData(data)
+      setLibraryInfo(await getLibraryStatus())
       setBackupMsg(t('backup.imported'))
     } catch (e) {
       setBackupMsg(`${t('common.error')}: ${e instanceof Error ? e.message : String(e)}`)
@@ -489,6 +497,14 @@ export function Settings() {
       <div className="stack">
         <h3>{t('backup.title')}</h3>
         <p className="muted">{t('backup.hint')}</p>
+        {libraryInfo && (
+          <p className="muted">
+            {t('backup.libraryPath', {
+              backend: t(`backup.backend.${libraryInfo.backend}`),
+              path: libraryInfo.path,
+            })}
+          </p>
+        )}
         <div className="btn-row">
           <button type="button" className="btn" onClick={() => void doExport()}>
             {t('backup.export')}

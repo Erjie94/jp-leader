@@ -4,6 +4,7 @@ import { flagQuizItem, type FlaggedKind } from '../lib/db'
 
 export interface FlagQuestionPayload {
   kind: FlaggedKind
+  mode?: string
   prompt: string
   sentence?: string
   passage?: string

@@ -1,28 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChoiceNotes } from '../components/ChoiceNotes'
 import { FlagQuestionButton, QuestionBlock } from '../components/FlagQuestionButton'
 import { PracticeHeader } from '../components/PracticeHeader'
 import { SpeakButton } from '../components/SpeakButton'
 import { SEED_PHRASES } from '../data/seed-phrases'
 import {
-  addPhrase,
   bulkAddPhrases,
   clearPhrases,
+  clearQuizzes,
   countQuizzes,
   listPhrases,
   listVocab,
   logPractice,
+  saveQuizzes,
   upsertReviewWrong,
   type PhraseEntry,
   type StoredQuiz,
 } from '../lib/db'
 import { autofillPhrase, type PhraseFillDirection } from '../lib/phrase-autofill'
+import { buildAnnotatedPhraseQuizFromEntry } from '../lib/phrase-quiz-build'
+import { confirmSavePhrase } from '../lib/phrase-quiz-sync'
 import {
   applyBlank,
   phraseContainsBlank,
   tokenizePhrase,
 } from '../lib/phrase-tokens'
 import { preparePhraseSession } from '../lib/quiz-bank'
+import { PHRASE_QUIZ_MODE } from '../lib/quiz-modes'
 
 type Tab = 'practice' | 'manage'
 
@@ -73,6 +78,25 @@ export function PhrasePractice() {
         })),
       )
       list = await listPhrases()
+      const vocab = await listVocab()
+      const words = vocab.map((v) => v.word)
+      const rows: Array<Omit<StoredQuiz, 'id' | 'createdAt' | 'lastShownAt' | 'showCount'>> = []
+      for (const p of list) {
+        const draft = buildAnnotatedPhraseQuizFromEntry(p, list, words)
+        if (!draft) continue
+        rows.push({
+          kind: 'phrase',
+          mode: PHRASE_QUIZ_MODE,
+          prompt: draft.prompt,
+          sentence: draft.sentence,
+          answer: draft.answer,
+          choices: draft.choices,
+          explanation: draft.explanation,
+          choiceExplanations: draft.choiceExplanations,
+          source: 'local',
+        })
+      }
+      if (rows.length) await saveQuizzes(rows)
     }
     setItems(list)
     const vocab = await listVocab()
@@ -136,29 +160,47 @@ export function PhrasePractice() {
     const p = phrase.trim()
     const m = meaning.trim()
     const b = blankWord.trim()
-    if (!p || !m || !b) {
-      setMessage(t('phrase.needBlank'))
+    if (!p || !m) {
+      setMessage(t('phrase.needPhraseMeaning'))
       return
     }
-    if (!phraseContainsBlank(p, b)) {
+    if (b && !phraseContainsBlank(p, b)) {
       setMessage(t('phrase.blankNotInPhrase'))
       return
     }
-    await addPhrase({
-      phrase: p,
-      reading: reading.trim(),
-      meaning: m,
-      blankWord: b,
-      source: 'manual',
-    })
-    setPhrase('')
-    setReading('')
-    setMeaning('')
-    setMeaningManual(false)
-    setBlankWord('')
-    setLookupMsg('')
-    setMessage(t('phrase.saved'))
-    await refresh()
+    setBusy(true)
+    setMessage(b ? t('phrase.savingQuiz') : t('phrase.autoBlankSaving'))
+    try {
+      const result = await confirmSavePhrase({
+        phrase: p,
+        reading: reading.trim(),
+        meaning: m,
+        blankWord: b,
+        source: 'manual',
+        onProgress: (stage) => {
+          if (stage === 'resolving-blank') setMessage(t('phrase.resolvingBlank'))
+          if (stage === 'building-quiz') setMessage(t('phrase.buildingQuiz'))
+          if (stage === 'saving') setMessage(t('phrase.savingQuiz'))
+        },
+      })
+      setPhrase('')
+      setReading('')
+      setMeaning('')
+      setMeaningManual(false)
+      setBlankWord('')
+      setLookupMsg('')
+      setMessage(
+        t('phrase.savedWithQuiz', {
+          blank: result.phrase.blankWord,
+          source: t(`phrase.blankSource.${result.blankSource}`),
+        }),
+      )
+      await refresh()
+    } catch (e) {
+      setMessage(`${t('common.error')}: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const meaningLocked = fillDir === 'ja2zh' && !meaningManual
@@ -199,6 +241,7 @@ export function PhrasePractice() {
         answer: current.answer,
         choices: current.choices,
         explanation: current.explanation,
+        choiceExplanations: current.choiceExplanations,
         mode: current.mode,
       })
     }
@@ -276,6 +319,7 @@ export function PhrasePractice() {
                     key={current.id}
                     item={{
                       kind: 'phrase',
+                      mode: current.mode,
                       prompt: current.prompt,
                       sentence: current.sentence,
                       answer: current.answer,
@@ -310,6 +354,13 @@ export function PhrasePractice() {
                   {feedback === 'bad' && `${t('kana.wrong')} → ${current.answer}`}
                 </div>
                 {feedback && <p className="muted">{current.explanation}</p>}
+                {feedback && (
+                  <ChoiceNotes
+                    answer={current.answer}
+                    selected={selected}
+                    choiceExplanations={current.choiceExplanations}
+                  />
+                )}
               </QuestionBlock>
               <div className="btn-row" style={{ justifyContent: 'center' }}>
                 {!feedback ? (
@@ -389,7 +440,7 @@ export function PhrasePractice() {
 
             <div className="field">
               <label>{t('phrase.blankLabel')}</label>
-              <p className="muted" style={{ marginTop: 0 }}>{t('phrase.blankHint')}</p>
+              <p className="muted" style={{ marginTop: 0 }}>{t('phrase.blankHintOptional')}</p>
               <div className="token-row" role="group" aria-label={t('phrase.blankLabel')}>
                 {tokens.map((tok) => (
                   tok.selectable ? (
@@ -422,8 +473,8 @@ export function PhrasePractice() {
             </div>
 
             <div className="btn-row">
-              <button type="button" className="btn" onClick={() => void save()}>
-                {t('phrase.save')}
+              <button type="button" className="btn" disabled={busy} onClick={() => void save()}>
+                {busy ? t('common.loading') : t('phrase.saveAndGenerate')}
               </button>
             </div>
             {message && <p className="muted">{message}</p>}
@@ -471,10 +522,12 @@ export function PhrasePractice() {
                 type="button"
                 className="btn btn-ghost"
                 onClick={() => {
-                  void clearPhrases().then(() => {
+                  void (async () => {
+                    await clearPhrases()
+                    await clearQuizzes('phrase')
                     setMessage(t('phrase.cleared'))
-                    return refresh()
-                  })
+                    await refresh()
+                  })()
                 }}
               >
                 {t('phrase.clear')}

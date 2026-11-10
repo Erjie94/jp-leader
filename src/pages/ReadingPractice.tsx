@@ -1,17 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlagQuestionButton, QuestionBlock } from '../components/FlagQuestionButton'
 import { PracticeHeader } from '../components/PracticeHeader'
+import { SpeakButton } from '../components/SpeakButton'
 import { useModel } from '../context/ModelContext'
 import {
   addReadingPassage,
+  countQuizzes,
   deleteReadingPassage,
   listReadingPassages,
   logPractice,
+  saveQuizzes,
   touchReadingPassagePracticed,
   upsertReviewWrong,
 } from '../lib/db'
 import { isModelReady } from '../lib/llm'
+import { flattenReadingPassageQuestions } from '../lib/quiz-bank'
+import { shuffle } from '../lib/quiz-fallback'
 import { generateReadingQuestionSet } from '../lib/reading-generate'
 import {
   loadReadingOnlineConfig,
@@ -27,22 +32,53 @@ import {
   type ReadingQuestion,
 } from '../lib/reading-spec'
 
-type Tab = 'create' | 'library' | 'play'
+type Tab = 'practice' | 'manage'
+type Phase = 'ready' | 'play' | 'done'
+
+interface PlayQuestion extends ReadingQuestion {
+  choices: string[]
+}
+
+function pickPassage(
+  passages: ReadingPassageRecord[],
+  excludeId?: string | null,
+): ReadingPassageRecord | null {
+  const usable = passages.filter((p) => (p.questions?.length ?? 0) > 0)
+  if (!usable.length) return null
+  const pool = excludeId ? usable.filter((p) => p.id !== excludeId) : usable
+  const ranked = [...(pool.length ? pool : usable)].sort(
+    (a, b) => a.lastPracticedAt - b.lastPracticedAt,
+  )
+  return ranked[0] ?? null
+}
+
+function toPlayQuestions(passage: ReadingPassageRecord): PlayQuestion[] {
+  return (passage.questions ?? []).map((q) => ({
+    ...q,
+    choices: shuffle([...q.choices]),
+  }))
+}
 
 export function ReadingPractice() {
   const { t } = useTranslation()
   const model = useModel()
-  const [tab, setTab] = useState<Tab>('create')
+  const [tab, setTab] = useState<Tab>('practice')
+  const [items, setItems] = useState<ReadingPassageRecord[]>([])
+  const [bankCount, setBankCount] = useState(0)
+  const [questionTotal, setQuestionTotal] = useState(0)
+
   const [sourceText, setSourceText] = useState('')
   const [title, setTitle] = useState('')
   const [count, setCount] = useState(4)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
-  const [items, setItems] = useState<ReadingPassageRecord[]>([])
-  const [session, setSession] = useState<ReadingPassageRecord | null>(null)
-  const [qIndex, setQIndex] = useState(0)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [feedback, setFeedback] = useState<'ok' | 'bad' | null>(null)
+
+  const [phase, setPhase] = useState<Phase>('ready')
+  const [active, setActive] = useState<ReadingPassageRecord | null>(null)
+  const [questions, setQuestions] = useState<PlayQuestion[]>([])
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [graded, setGraded] = useState(false)
+  const [correctCount, setCorrectCount] = useState(0)
 
   const [onlineOpen, setOnlineOpen] = useState(false)
   const [onlineCfg, setOnlineCfg] = useState<ReadingOnlineConfig>(() => {
@@ -50,14 +86,60 @@ export function ReadingPractice() {
   })
 
   const refresh = useCallback(async () => {
-    setItems(await listReadingPassages())
+    const list = await listReadingPassages()
+    setItems(list)
+    setQuestionTotal(list.reduce((n, p) => n + (p.questions?.length ?? 0), 0))
+    setBankCount(await countQuizzes('reading'))
   }, [])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  const currentQ: ReadingQuestion | undefined = session?.questions[qIndex]
+  const allAnswered = useMemo(
+    () => questions.length > 0 && questions.every((q) => Boolean(answers[q.id])),
+    [questions, answers],
+  )
+
+  const openPassage = async (passage: ReadingPassageRecord) => {
+    const prepared = toPlayQuestions(passage)
+    if (!prepared.length) {
+      setMsg(t('reading.noQuestions'))
+      return
+    }
+    setActive(passage)
+    setQuestions(prepared)
+    setAnswers({})
+    setGraded(false)
+    setCorrectCount(0)
+    setPhase('play')
+    setTab('practice')
+    setMsg('')
+    await touchReadingPassagePracticed(passage.id)
+    await saveQuizzes(flattenReadingPassageQuestions([passage]))
+    setBankCount(await countQuizzes('reading'))
+  }
+
+  const startPractice = async (excludeCurrent = false) => {
+    if (!items.length || questionTotal < 1) {
+      setMsg(t('reading.empty'))
+      return
+    }
+    setBusy(true)
+    setMsg('')
+    try {
+      const passage = pickPassage(items, excludeCurrent ? active?.id : null)
+      if (!passage) {
+        setMsg(t('reading.noQuestions'))
+        return
+      }
+      await openPassage(passage)
+    } catch (e) {
+      setMsg(`${t('common.error')}: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const generate = async () => {
     setBusy(true)
@@ -67,9 +149,17 @@ export function ReadingPractice() {
         count,
         title,
         onProgress: (p) => {
-          setMsg(t(`reading.stage.${p.message}`, { defaultValue: p.message, detail: p.detail ?? '' }))
+          setMsg(
+            t(`reading.stage.${p.message}`, {
+              defaultValue: p.message,
+              detail: p.detail ?? '',
+            }),
+          )
         },
       })
+      if (!result.passage.questions.length) {
+        throw new Error(t('reading.noQuestions'))
+      }
       const saved = await addReadingPassage(result.passage)
       setMsg(
         t('reading.generated', {
@@ -80,7 +170,7 @@ export function ReadingPractice() {
       setSourceText('')
       setTitle('')
       await refresh()
-      setTab('library')
+      await openPassage(saved)
     } catch (e) {
       setMsg(`${t('common.error')}: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
@@ -88,44 +178,47 @@ export function ReadingPractice() {
     }
   }
 
-  const startPlay = async (row: ReadingPassageRecord) => {
-    setSession(row)
-    setQIndex(0)
-    setSelected(null)
-    setFeedback(null)
-    setTab('play')
-    await touchReadingPassagePracticed(row.id)
+  const submitAll = () => {
+    if (!active || !allAnswered || graded) return
+    let correct = 0
+    for (const q of questions) {
+      const pick = answers[q.id]
+      const ok = pick === q.answer
+      if (ok) correct += 1
+      void logPractice({ module: 'reading', correct: ok })
+      if (!ok) {
+        void upsertReviewWrong({
+          kind: 'reading',
+          prompt: q.prompt,
+          sentence: active.title,
+          answer: q.answer,
+          choices: q.choices,
+          explanation: q.explanation,
+          mode: q.type,
+        })
+      }
+    }
+    setCorrectCount(correct)
+    setGraded(true)
+    setPhase('done')
   }
 
-  const check = () => {
-    if (!session || !currentQ || !selected) return
-    const ok = selected === currentQ.answer
-    setFeedback(ok ? 'ok' : 'bad')
-    void logPractice({ module: 'reading', correct: ok })
-    if (!ok) {
-      void upsertReviewWrong({
-        kind: 'reading',
-        prompt: currentQ.prompt,
-        sentence: session.title,
-        answer: currentQ.answer,
-        choices: currentQ.choices,
-        explanation: currentQ.explanation,
-        mode: currentQ.type,
-      })
-    }
+  const removeQuestion = (id: string) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== id))
+    setAnswers((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
   }
 
-  const next = () => {
-    if (!session) return
-    if (qIndex < session.questions.length - 1) {
-      setQIndex((i) => i + 1)
-      setSelected(null)
-      setFeedback(null)
-    } else {
-      setSession(null)
-      setTab('library')
-      setMsg(t('reading.sessionDone'))
-    }
+  const backToReady = () => {
+    setPhase('ready')
+    setActive(null)
+    setQuestions([])
+    setAnswers({})
+    setGraded(false)
+    setCorrectCount(0)
   }
 
   const saveOnline = () => {
@@ -145,26 +238,178 @@ export function ReadingPractice() {
   const charCount = [...sourceText].length
   const modelReady = model.ready || isModelReady()
   const onlineReady = Boolean(loadReadingOnlineConfig())
+  const showExam = (phase === 'play' || phase === 'done') && active && questions.length > 0
 
   return (
     <div className="panel stack">
       <PracticeHeader title={t('reading.title')} step={4} hint={t('reading.flowHint')} />
 
       <div className="tabs">
-        <button type="button" className={`tab ${tab === 'create' ? 'active' : ''}`} onClick={() => setTab('create')}>
-          {t('reading.tabCreate')}
+        <button
+          type="button"
+          className={`tab ${tab === 'practice' ? 'active' : ''}`}
+          onClick={() => setTab('practice')}
+        >
+          {t('reading.tabPractice')}
         </button>
-        <button type="button" className={`tab ${tab === 'library' ? 'active' : ''}`} onClick={() => setTab('library')}>
-          {t('reading.tabLibrary')}
+        <button
+          type="button"
+          className={`tab ${tab === 'manage' ? 'active' : ''}`}
+          onClick={() => setTab('manage')}
+        >
+          {t('reading.tabManage')}
         </button>
-        {session && (
-          <button type="button" className={`tab ${tab === 'play' ? 'active' : ''}`} onClick={() => setTab('play')}>
-            {t('reading.tabPlay')}
-          </button>
-        )}
       </div>
 
-      {tab === 'create' && (
+      {tab === 'practice' && phase === 'ready' && (
+        <>
+          <p className="muted">
+            {t('reading.count', { n: items.length, q: questionTotal })} ·{' '}
+            {t('quiz.bankCount', { n: bankCount })}
+          </p>
+          <p className="muted">{t('reading.modeHint')}</p>
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn btn-accent btn-lg"
+              disabled={!questionTotal || busy}
+              onClick={() => void startPractice(false)}
+            >
+              {busy ? t('common.loading') : t('reading.practice')}
+            </button>
+          </div>
+          {!questionTotal && (
+            <p className="muted">
+              {t('reading.empty')}{' '}
+              <button type="button" className="btn btn-ghost" onClick={() => setTab('manage')}>
+                {t('reading.tabManage')}
+              </button>
+            </p>
+          )}
+          {msg && <p className="muted">{msg}</p>}
+        </>
+      )}
+
+      {tab === 'practice' && showExam && active && (
+        <>
+          <div className="play-toolbar">
+            <button type="button" className="btn btn-ghost" onClick={backToReady}>
+              {t('common.changeOptions')}
+            </button>
+            <SpeakButton text={active.sourceText.slice(0, 120)} />
+          </div>
+          <p className="muted">
+            {active.title} · {t('reading.examMeta', { n: questions.length })}
+          </p>
+          <div className="passage">{active.sourceText}</div>
+
+          <div className="stack" style={{ gap: '1.25rem' }}>
+            {questions.map((q, i) => {
+              const picked = answers[q.id]
+              const result = graded ? (picked === q.answer ? 'ok' : 'bad') : null
+              return (
+                <QuestionBlock
+                  key={q.id}
+                  flag={(
+                    <FlagQuestionButton
+                      item={{
+                        kind: 'reading',
+                        prompt: q.prompt,
+                        passage: active.sourceText,
+                        sentence: active.title,
+                        answer: q.answer,
+                        choices: q.choices,
+                        explanation: q.explanation,
+                      }}
+                      onFlagged={() => removeQuestion(q.id)}
+                    />
+                  )}
+                >
+                  <div className="muted">
+                    {t('reading.questionIndex', { i: i + 1, n: questions.length })}
+                    {' · '}
+                    {t(`reading.type.${q.type}`)}
+                  </div>
+                  <p>{q.prompt}</p>
+                  <div className="choice-list">
+                    {q.choices.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`choice ${picked === c ? 'selected' : ''}`}
+                        disabled={graded}
+                        onClick={() => {
+                          setAnswers((prev) => ({ ...prev, [q.id]: c }))
+                        }}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  {result && (
+                    <>
+                      <div className={`feedback ${result}`}>
+                        {result === 'ok' && t('kana.correct')}
+                        {result === 'bad' && `${t('kana.wrong')} → ${q.answer}`}
+                      </div>
+                      <p className="muted">{q.explanation}</p>
+                    </>
+                  )}
+                </QuestionBlock>
+              )
+            })}
+          </div>
+
+          {phase === 'play' && (
+            <div className="btn-row" style={{ justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-accent btn-lg"
+                disabled={!allAnswered}
+                onClick={submitAll}
+              >
+                {t('reading.submitAll')}
+              </button>
+            </div>
+          )}
+
+          {phase === 'done' && (
+            <>
+              <div className="ready-card">
+                <p>{t('reading.sessionDone')}</p>
+                <p className="muted">
+                  {t('reading.score', { correct: correctCount, total: questions.length })}
+                </p>
+              </div>
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn btn-accent"
+                  disabled={busy}
+                  onClick={() => void startPractice(true)}
+                >
+                  {t('reading.nextPassage')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    if (!active) return
+                    void openPassage(active)
+                  }}
+                >
+                  {t('common.restart')}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={backToReady}>
+                  {t('reading.backReady')}
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {tab === 'manage' && (
         <>
           <p className="muted">{t('reading.createHint')}</p>
           <div className="field">
@@ -186,7 +431,11 @@ export function ReadingPractice() {
               style={{ minHeight: '12rem', resize: 'vertical' }}
             />
             <span className="muted">
-              {t('reading.charCount', { n: charCount, min: READING_PASSAGE_MIN, max: READING_PASSAGE_MAX })}
+              {t('reading.charCount', {
+                n: charCount,
+                min: READING_PASSAGE_MIN,
+                max: READING_PASSAGE_MAX,
+              })}
             </span>
           </div>
           <div className="field">
@@ -214,7 +463,7 @@ export function ReadingPractice() {
               disabled={busy || charCount < READING_PASSAGE_MIN}
               onClick={() => void generate()}
             >
-              {busy ? t('common.loading') : t('reading.generate')}
+              {busy ? t('common.loading') : t('reading.generateAndPractice')}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => setOnlineOpen((v) => !v)}>
               {t('reading.onlineSettings')}
@@ -272,114 +521,37 @@ export function ReadingPractice() {
           )}
 
           {msg && <p className="muted">{msg}</p>}
-        </>
-      )}
 
-      {tab === 'library' && (
-        <>
-          <p className="muted">{t('reading.libraryHint', { n: items.length })}</p>
-          {!items.length && <p className="muted">{t('reading.empty')}</p>}
-          <div className="stack">
-            {items.map((row) => (
-              <div key={row.id} className="ready-card" style={{ display: 'grid', gap: '0.5rem' }}>
-                <strong>{row.title}</strong>
-                <span className="muted">
-                  {t('reading.meta', {
-                    n: row.questions.length,
-                    gen: t(`reading.generator.${row.generator}`),
-                    lang: row.lang,
-                  })}
-                </span>
-                <p className="muted" style={{ margin: 0 }}>
-                  {[...row.sourceText].slice(0, 80).join('')}
-                  {[...row.sourceText].length > 80 ? '…' : ''}
-                </p>
-                <div className="btn-row">
-                  <button type="button" className="btn btn-accent" onClick={() => void startPlay(row)}>
-                    {t('reading.practice')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      void deleteReadingPassage(row.id).then(() => refresh())
-                    }}
-                  >
-                    {t('reading.delete')}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          {msg && <p className="muted">{msg}</p>}
-        </>
-      )}
-
-      {tab === 'play' && session && currentQ && (
-        <>
-          <div className="play-toolbar">
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => {
-                setSession(null)
-                setTab('library')
-              }}
-            >
-              {t('common.changeOptions')}
-            </button>
-          </div>
-          <div className="passage">{session.sourceText}</div>
-          <QuestionBlock
-            flag={(
-              <FlagQuestionButton
-                key={currentQ.id}
-                item={{
-                  kind: 'reading',
-                  prompt: currentQ.prompt,
-                  passage: session.sourceText,
-                  answer: currentQ.answer,
-                  choices: currentQ.choices,
-                  explanation: currentQ.explanation,
-                }}
-                onFlagged={next}
-              />
-            )}
-          >
-            <div className="muted">
-              {t(`reading.type.${currentQ.type}`)} · {qIndex + 1}/{session.questions.length}
-            </div>
-            <p>{currentQ.prompt}</p>
-            <div className="choice-list">
-              {currentQ.choices.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`choice ${selected === c ? 'selected' : ''}`}
-                  onClick={() => {
-                    setSelected(c)
-                    setFeedback(null)
-                  }}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            <div className={`feedback ${feedback ?? ''}`}>
-              {feedback === 'ok' && t('kana.correct')}
-              {feedback === 'bad' && `${t('kana.wrong')} → ${currentQ.answer}`}
-            </div>
-            {feedback && <p className="muted">{currentQ.explanation}</p>}
-          </QuestionBlock>
-          <div className="btn-row" style={{ justifyContent: 'center' }}>
-            {!feedback ? (
-              <button type="button" className="btn btn-accent" disabled={!selected} onClick={check}>
-                {t('kana.submit')}
-              </button>
+          <div className="stack" style={{ marginTop: '1rem' }}>
+            <h3>{t('reading.libraryHint', { n: items.length })}</h3>
+            {!items.length ? (
+              <p className="muted">{t('reading.empty')}</p>
             ) : (
-              <button type="button" className="btn btn-accent" onClick={next}>
-                {qIndex < session.questions.length - 1 ? t('kana.next') : t('reading.finish')}
-              </button>
+              <ul className="stack" style={{ listStyle: 'none', padding: 0, margin: 0, gap: '0.5rem' }}>
+                {items.map((row) => (
+                  <li key={row.id} className="btn-row" style={{ alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <strong>{row.title}</strong>
+                      <div className="muted">
+                        {t('reading.meta', {
+                          n: row.questions.length,
+                          gen: t(`reading.generator.${row.generator}`),
+                          lang: row.lang,
+                        })}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        void deleteReadingPassage(row.id).then(() => refresh())
+                      }}
+                    >
+                      {t('reading.delete')}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </>

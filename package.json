@@ -13,7 +13,9 @@
     "build:app": "npm run build && electron-builder --win",
     "build:linux": "npm run build && electron-builder --linux",
     "preview": "vite preview",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "build": {
     "appId": "com.jpleader.app",
@@ -90,6 +92,7 @@
     "typescript": "~7.0.2",
     "vite": "^8.3.6",
     "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^3.2.4",
     "wait-on": "^9.0.3"
   },
   "allowScripts": {

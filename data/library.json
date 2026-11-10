@@ -1,0 +1,824 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-10T12:15:55.232Z",
+  "vocab": [
+    {
+      "word": "食べる",
+      "reading": "たべる",
+      "meaning": "吃",
+      "source": "manual",
+      "id": "d5219934-15e1-451d-972d-92a9342b766f",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "飲む",
+      "reading": "のむ",
+      "meaning": "喝",
+      "source": "manual",
+      "id": "40ce658a-20ca-4030-acdf-9b3453908bed",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "行く",
+      "reading": "いく",
+      "meaning": "去",
+      "source": "manual",
+      "id": "7f04dddb-87f1-4ca8-968f-6d5fb39f1fff",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "来る",
+      "reading": "くる",
+      "meaning": "來",
+      "source": "manual",
+      "id": "502614cd-2f32-4997-8c27-937b5bd59e6a",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "見る",
+      "reading": "みる",
+      "meaning": "看",
+      "source": "manual",
+      "id": "bef11840-6538-4076-807e-368b86a29837",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "聞く",
+      "reading": "きく",
+      "meaning": "聽／問",
+      "source": "manual",
+      "id": "a494e0c5-a575-4c6d-93c0-4fbd18a25317",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "読む",
+      "reading": "よむ",
+      "meaning": "讀",
+      "source": "manual",
+      "id": "b29649a3-719f-4e84-8918-dd02a20fee92",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "書く",
+      "reading": "かく",
+      "meaning": "寫",
+      "source": "manual",
+      "id": "30afd1c9-d14c-4c84-bbd5-20eaa9cd4d00",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "買う",
+      "reading": "かう",
+      "meaning": "買",
+      "source": "manual",
+      "id": "8b6ad21b-7d3f-4868-965f-2f63b38e8c48",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "会う",
+      "reading": "あう",
+      "meaning": "見面",
+      "source": "manual",
+      "id": "fdd9fe34-8e49-4325-b269-efd53ba88380",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "学校",
+      "reading": "がっこう",
+      "meaning": "學校",
+      "source": "manual",
+      "id": "9debb4a4-e530-42d5-8e93-b0d9a1b3d570",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "先生",
+      "reading": "せんせい",
+      "meaning": "老師",
+      "source": "manual",
+      "id": "9b607a25-3be2-4ac8-9caf-c5ef8f013298",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "学生",
+      "reading": "がくせい",
+      "meaning": "學生",
+      "source": "manual",
+      "id": "32127e03-7d4e-4c5a-a3b2-3d58c7d5e940",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "友達",
+      "reading": "ともだち",
+      "meaning": "朋友",
+      "source": "manual",
+      "id": "3a2335d4-f2c9-4a13-b903-7b82412fc536",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "家族",
+      "reading": "かぞく",
+      "meaning": "家人",
+      "source": "manual",
+      "id": "d63134b9-04b0-4a33-9b25-f4b9ab6d6c00",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "水",
+      "reading": "みず",
+      "meaning": "水",
+      "source": "manual",
+      "id": "6d458713-727b-4c7c-acf0-9ebb6a462970",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "ご飯",
+      "reading": "ごはん",
+      "meaning": "飯／餐",
+      "source": "manual",
+      "id": "529ae32b-7c5e-4941-8d8b-bbb865956aa2",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "本",
+      "reading": "ほん",
+      "meaning": "書",
+      "source": "manual",
+      "id": "6da02d62-b717-4845-8a72-96e1c54ca540",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "今日",
+      "reading": "きょう",
+      "meaning": "今天",
+      "source": "manual",
+      "id": "bdad3753-f44d-4e14-9cdc-dd8b6a10a320",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "明日",
+      "reading": "あした",
+      "meaning": "明天",
+      "source": "manual",
+      "id": "394d3847-7292-45d0-81e5-c765bb5e7b16",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "昨日",
+      "reading": "きのう",
+      "meaning": "昨天",
+      "source": "manual",
+      "id": "6d860ff2-00c4-42c7-9673-2e034731a029",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "今",
+      "reading": "いま",
+      "meaning": "現在",
+      "source": "manual",
+      "id": "da64c8af-09d6-4132-b042-01ffcbf04a36",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "時間",
+      "reading": "じかん",
+      "meaning": "時間",
+      "source": "manual",
+      "id": "6781a938-a520-4503-ab9b-f9251ed0fcbf",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "何",
+      "reading": "なに",
+      "meaning": "什麼",
+      "source": "manual",
+      "id": "ebb56484-8c73-4afa-a6e9-5dfc4ddffec9",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "誰",
+      "reading": "だれ",
+      "meaning": "誰",
+      "source": "manual",
+      "id": "7a441fc1-cd9c-4b69-b819-1b2f567dafd8",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "どこ",
+      "reading": "どこ",
+      "meaning": "哪裡",
+      "source": "manual",
+      "id": "91779654-a36c-4d46-9def-205cc2b2462a",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "いつ",
+      "reading": "いつ",
+      "meaning": "何時",
+      "source": "manual",
+      "id": "d9c69987-79ba-4f81-b24f-591dfac8b757",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "どう",
+      "reading": "どう",
+      "meaning": "怎樣",
+      "source": "manual",
+      "id": "e6e04c7d-7aec-4a47-a032-4deb0ff94a29",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "大きい",
+      "reading": "おおきい",
+      "meaning": "大的",
+      "source": "manual",
+      "id": "9653d785-9a47-41d9-8262-b713af1c363e",
+      "createdAt": 1794310206855
+    },
+    {
+      "word": "小さい",
+      "reading": "ちいさい",
+      "meaning": "小的",
+      "source": "manual",
+      "id": "c3acf0bb-b2cd-45c9-8030-5cf3c2c8f048",
+      "createdAt": 1794310206855
+    }
+  ],
+  "phrases": [
+    {
+      "phrase": "本を読みます",
+      "reading": "ほんをよみます",
+      "meaning": "讀書",
+      "blankWord": "本",
+      "source": "manual",
+      "id": "cd637b1b-a5de-42fe-8714-3c74c0b2de82",
+      "createdAt": 1794309738636
+    },
+    {
+      "phrase": "水を飲みます",
+      "reading": "みずをのみます",
+      "meaning": "喝水",
+      "blankWord": "水",
+      "source": "manual",
+      "id": "e18e7b27-2964-41fe-8bd7-cfb99c6bab33",
+      "createdAt": 1794309738636
+    },
+    {
+      "phrase": "友達と話します",
+      "reading": "ともだちとはなします",
+      "meaning": "和朋友說話",
+      "blankWord": "友達",
+      "source": "manual",
+      "id": "75ecdfb0-0286-4a48-80f8-a21d18add87f",
+      "createdAt": 1794309738636
+    },
+    {
+      "phrase": "駅へ行きます",
+      "reading": "えきへいきます",
+      "meaning": "去車站",
+      "blankWord": "駅",
+      "source": "manual",
+      "id": "15e4554d-dc90-4dce-ba07-45593d977e2e",
+      "createdAt": 1794309738636
+    },
+    {
+      "phrase": "日本語を勉強します",
+      "reading": "にほんごをべんきょうします",
+      "meaning": "學日文",
+      "blankWord": "日本語",
+      "source": "manual",
+      "id": "b5155654-ff37-438c-82d8-580d7c54665c",
+      "createdAt": 1794309738636
+    },
+    {
+      "phrase": "朝ごはんを食べます",
+      "reading": "あさごはんをたべます",
+      "meaning": "吃早餐",
+      "blankWord": "朝ごはん",
+      "source": "manual",
+      "id": "c00c29d4-c0a1-4a39-a50f-a7816fa1f874",
+      "createdAt": 1794309738636
+    },
+    {
+      "phrase": "映画を見ます",
+      "reading": "えいがをみます",
+      "meaning": "看電影",
+      "blankWord": "映画",
+      "source": "manual",
+      "id": "93f9b094-5499-4676-b280-c2e0dcb6f871",
+      "createdAt": 1794309738636
+    },
+    {
+      "phrase": "手紙を書きます",
+      "reading": "てがみをかきます",
+      "meaning": "寫信",
+      "blankWord": "手紙",
+      "source": "manual",
+      "id": "db58a5f4-7620-4369-ae5c-7a7113359e4a",
+      "createdAt": 1794309738636
+    }
+  ],
+  "readingPassages": [
+    {
+      "title": "冬のかに「ズワイガニ」をとる漁が始まった",
+      "sourceText": "日本海で、冬のかに「ズワイガニ」をとる漁が6日から始まりました。\n\n石川県では、6日午前0時、18の船が漁を始めました。\n\nそして、午前8時ごろ、たくさん、かにをとった船が金沢港に戻ってきました。\n\n漁をした人は「みなさんに早く食べてほしいです」と話していました。\n\n「ズワイガニ」のオスをとる漁は、来年の3月20日まで行います。メスをとる漁は、来月29日までです。",
+      "lang": "ja",
+      "questions": [
+        {
+          "type": "inference",
+          "prompt": "3/20日をえたメスペジーなのかいかなのか",
+          "answer": "いか",
+          "choices": [
+            "鯧",
+            "鯖",
+            "いか",
+            "鯨"
+          ],
+          "explanation": "題中の日程のみを考えるので、「鯖」を選出し。",
+          "id": "beeb6796-4538-46ee-a34f-8fb82c9d7eba"
+        },
+        {
+          "type": "inference",
+          "prompt": "3/20日を目えた鯖なのかいかなのか",
+          "answer": "鯖",
+          "choices": [
+            "家庭",
+            "行く",
+            "鯖",
+            "鯰"
+          ],
+          "explanation": "日数のみを考えるので、「鯖」を選出し。",
+          "id": "44dca2af-0a92-4c04-935b-1c5faacb131e"
+        },
+        {
+          "type": "inference",
+          "prompt": "3/20日目に鯖なのかいかなのか",
+          "answer": "鯖",
+          "choices": [
+            "行く",
+            "讀書",
+            "鯖",
+            "今天"
+          ],
+          "explanation": "日数のみを考えるので、「鯖」を選出し。",
+          "id": "1f5c2f1e-c8b0-4a08-85f3-bd4a2408db3b"
+        }
+      ],
+      "generator": "local",
+      "id": "f4adc758-620f-4e39-8357-593b90bf3468",
+      "createdAt": 1794309965017,
+      "lastPracticedAt": 1794309965023
+    },
+    {
+      "title": "京都府八幡市　子どもを産んで休んでいた市長が仕事に戻った",
+      "sourceText": "京都府八幡市の川田翔子市長は、子どもを産むために7月から仕事を休みました。\n\n子どもを産むために仕事を休んだ市長は、日本では初めてのようです。\n\n市長は、9月に子どもを産んで、9日から仕事に戻りました。\n\n市長は休みの間も、オンラインで仕事の話を聞いたり意見を言ったりしていました。\n\n川田市長は「休むことと、仕事をすることの、両方をすることができました。 これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "lang": "ja",
+      "questions": [
+        {
+          "type": "main",
+          "prompt": "この文章の主な内容はどれですか。",
+          "answer": "京都府八幡市の川田翔子市長は、子どもを産むた…",
+          "choices": [
+            "京都府八幡市の川田翔子市長は、子どもを産むた…",
+            "無関係な宣伝",
+            "旅行予約の手順",
+            "内容と反対の結論"
+          ],
+          "explanation": "冒頭：京都府八幡市の川田翔子市長は、子どもを産むために…",
+          "id": "37986249-652c-4be3-a8a0-adfb663d80bf"
+        },
+        {
+          "type": "vocab",
+          "prompt": "本文に出てくる語として正しいものはどれですか。",
+          "answer": "京都府八幡市",
+          "choices": [
+            "大阪",
+            "両方",
+            "意見",
+            "京都府八幡市"
+          ],
+          "explanation": "本文に「京都府八幡市」があります。",
+          "id": "3b98befc-eb34-42c8-923b-7ac6e924d146"
+        },
+        {
+          "type": "detail",
+          "prompt": "漁が始まったのは何日ですか。",
+          "answer": "9日",
+          "choices": [
+            "来週",
+            "5月5日",
+            "9日",
+            "1月1日"
+          ],
+          "explanation": "本文の情報：9日",
+          "id": "0a794e75-ec3c-4d29-bd37-5a4e37d2c415"
+        },
+        {
+          "type": "detail",
+          "prompt": "本文の内容に最も近いものはどれですか。",
+          "answer": "これからは職員と一緒に仕事を進めていきたい」と話しました。",
+          "choices": [
+            "本文と反対の主張",
+            "これからは職員と一緒に仕事を進めていきたい」と話しました。",
+            "数式の説明",
+            "無関係な宣伝"
+          ],
+          "explanation": "根拠：これからは職員と一緒に仕事を進めていきたい」と話しました。",
+          "id": "3659fc8f-a36c-4be4-b53b-7a36891c8706"
+        }
+      ],
+      "generator": "heuristic",
+      "id": "dda7a576-e11f-44f1-a9e8-8b4555dd211d",
+      "createdAt": 1794310013444,
+      "lastPracticedAt": 1794310013448
+    }
+  ],
+  "quizBank": [
+    {
+      "kind": "reading",
+      "mode": "main",
+      "prompt": "この文章の主な内容はどれですか。",
+      "sentence": "京都府八幡市　子どもを産んで休んでいた市長が仕事に戻った",
+      "passage": "京都府八幡市の川田翔子市長は、子どもを産むために7月から仕事を休みました。\n\n子どもを産むために仕事を休んだ市長は、日本では初めてのようです。\n\n市長は、9月に子どもを産んで、9日から仕事に戻りました。\n\n市長は休みの間も、オンラインで仕事の話を聞いたり意見を言ったりしていました。\n\n川田市長は「休むことと、仕事をすることの、両方をすることができました。 これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "answer": "京都府八幡市の川田翔子市長は、子どもを産むた…",
+      "choices": [
+        "京都府八幡市の川田翔子市長は、子どもを産むた…",
+        "旅行予約の手順",
+        "無関係な宣伝",
+        "内容と反対の結論"
+      ],
+      "explanation": "冒頭：京都府八幡市の川田翔子市長は、子どもを産むために…",
+      "source": "fallback",
+      "id": "82557d9f-5893-4357-a452-4b9fe0ac31d3",
+      "createdAt": 1794310151860,
+      "lastShownAt": 1794310170495,
+      "showCount": 4
+    },
+    {
+      "kind": "reading",
+      "mode": "vocab",
+      "prompt": "本文に出てくる語として正しいものはどれですか。",
+      "sentence": "京都府八幡市　子どもを産んで休んでいた市長が仕事に戻った",
+      "passage": "京都府八幡市の川田翔子市長は、子どもを産むために7月から仕事を休みました。\n\n子どもを産むために仕事を休んだ市長は、日本では初めてのようです。\n\n市長は、9月に子どもを産んで、9日から仕事に戻りました。\n\n市長は休みの間も、オンラインで仕事の話を聞いたり意見を言ったりしていました。\n\n川田市長は「休むことと、仕事をすることの、両方をすることができました。 これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "answer": "京都府八幡市",
+      "choices": [
+        "大阪",
+        "京都府八幡市",
+        "両方",
+        "意見"
+      ],
+      "explanation": "本文に「京都府八幡市」があります。",
+      "source": "fallback",
+      "id": "bc8124b3-80bb-4813-85c6-7e70c7c19b54",
+      "createdAt": 1794310151860,
+      "lastShownAt": 1794310170495,
+      "showCount": 4
+    },
+    {
+      "kind": "reading",
+      "mode": "detail",
+      "prompt": "漁が始まったのは何日ですか。",
+      "sentence": "京都府八幡市　子どもを産んで休んでいた市長が仕事に戻った",
+      "passage": "京都府八幡市の川田翔子市長は、子どもを産むために7月から仕事を休みました。\n\n子どもを産むために仕事を休んだ市長は、日本では初めてのようです。\n\n市長は、9月に子どもを産んで、9日から仕事に戻りました。\n\n市長は休みの間も、オンラインで仕事の話を聞いたり意見を言ったりしていました。\n\n川田市長は「休むことと、仕事をすることの、両方をすることができました。 これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "answer": "9日",
+      "choices": [
+        "9日",
+        "5月5日",
+        "来週",
+        "1月1日"
+      ],
+      "explanation": "本文の情報：9日",
+      "source": "fallback",
+      "id": "c9d0eaf0-269a-4410-a094-f1da51b46f19",
+      "createdAt": 1794310151860,
+      "lastShownAt": 1794310170495,
+      "showCount": 4
+    },
+    {
+      "kind": "reading",
+      "mode": "detail",
+      "prompt": "本文の内容に最も近いものはどれですか。",
+      "sentence": "京都府八幡市　子どもを産んで休んでいた市長が仕事に戻った",
+      "passage": "京都府八幡市の川田翔子市長は、子どもを産むために7月から仕事を休みました。\n\n子どもを産むために仕事を休んだ市長は、日本では初めてのようです。\n\n市長は、9月に子どもを産んで、9日から仕事に戻りました。\n\n市長は休みの間も、オンラインで仕事の話を聞いたり意見を言ったりしていました。\n\n川田市長は「休むことと、仕事をすることの、両方をすることができました。 これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "answer": "これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "choices": [
+        "無関係な宣伝",
+        "本文と反対の主張",
+        "数式の説明",
+        "これからは職員と一緒に仕事を進めていきたい」と話しました。"
+      ],
+      "explanation": "根拠：これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "source": "fallback",
+      "id": "297be008-3e39-4d05-9c1d-e7a7259d371b",
+      "createdAt": 1794310151860,
+      "lastShownAt": 1794310170495,
+      "showCount": 4
+    },
+    {
+      "kind": "reading",
+      "mode": "inference",
+      "prompt": "3/20日をえたメスペジーなのかいかなのか",
+      "sentence": "冬のかに「ズワイガニ」をとる漁が始まった",
+      "passage": "日本海で、冬のかに「ズワイガニ」をとる漁が6日から始まりました。\n\n石川県では、6日午前0時、18の船が漁を始めました。\n\nそして、午前8時ごろ、たくさん、かにをとった船が金沢港に戻ってきました。\n\n漁をした人は「みなさんに早く食べてほしいです」と話していました。\n\n「ズワイガニ」のオスをとる漁は、来年の3月20日まで行います。メスをとる漁は、来月29日までです。",
+      "answer": "いか",
+      "choices": [
+        "鯧",
+        "いか",
+        "鯖",
+        "鯨"
+      ],
+      "explanation": "題中の日程のみを考えるので、「鯖」を選出し。",
+      "source": "model",
+      "id": "2d0020c7-fe3a-4bae-a1b8-747b56cdea19",
+      "createdAt": 1794310151860,
+      "lastShownAt": 1794310170495,
+      "showCount": 4
+    },
+    {
+      "kind": "reading",
+      "mode": "inference",
+      "prompt": "3/20日を目えた鯖なのかいかなのか",
+      "sentence": "冬のかに「ズワイガニ」をとる漁が始まった",
+      "passage": "日本海で、冬のかに「ズワイガニ」をとる漁が6日から始まりました。\n\n石川県では、6日午前0時、18の船が漁を始めました。\n\nそして、午前8時ごろ、たくさん、かにをとった船が金沢港に戻ってきました。\n\n漁をした人は「みなさんに早く食べてほしいです」と話していました。\n\n「ズワイガニ」のオスをとる漁は、来年の3月20日まで行います。メスをとる漁は、来月29日までです。",
+      "answer": "鯖",
+      "choices": [
+        "家庭",
+        "鯰",
+        "行く",
+        "鯖"
+      ],
+      "explanation": "日数のみを考えるので、「鯖」を選出し。",
+      "source": "model",
+      "id": "3e5805f2-d9d3-4f97-8d0d-75eefc8630e8",
+      "createdAt": 1794310151860,
+      "lastShownAt": 1794310170495,
+      "showCount": 4
+    },
+    {
+      "kind": "reading",
+      "mode": "inference",
+      "prompt": "3/20日目に鯖なのかいかなのか",
+      "sentence": "冬のかに「ズワイガニ」をとる漁が始まった",
+      "passage": "日本海で、冬のかに「ズワイガニ」をとる漁が6日から始まりました。\n\n石川県では、6日午前0時、18の船が漁を始めました。\n\nそして、午前8時ごろ、たくさん、かにをとった船が金沢港に戻ってきました。\n\n漁をした人は「みなさんに早く食べてほしいです」と話していました。\n\n「ズワイガニ」のオスをとる漁は、来年の3月20日まで行います。メスをとる漁は、来月29日までです。",
+      "answer": "鯖",
+      "choices": [
+        "鯖",
+        "行く",
+        "今天",
+        "讀書"
+      ],
+      "explanation": "日数のみを考えるので、「鯖」を選出し。",
+      "source": "model",
+      "id": "7e608391-0f0b-405e-b562-62413aeb3cba",
+      "createdAt": 1794310151860,
+      "lastShownAt": 1794310170495,
+      "showCount": 4
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____を飲みます",
+      "answer": "水",
+      "choices": [
+        "時間",
+        "朝ごはん",
+        "水",
+        "学生"
+      ],
+      "explanation": "水を飲みます（みずをのみます）＝ 喝水",
+      "source": "local",
+      "id": "9fac1d50-330e-4872-baa7-2c9421c0a1c2",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____を読みます",
+      "answer": "本",
+      "choices": [
+        "本",
+        "どう",
+        "何",
+        "ご飯"
+      ],
+      "explanation": "本を読みます（ほんをよみます）＝ 讀書",
+      "source": "local",
+      "id": "2032bf2f-1452-4f98-8257-8d8c90ecee4f",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____へ行きます",
+      "answer": "駅",
+      "choices": [
+        "駅",
+        "明日",
+        "見る",
+        "どう"
+      ],
+      "explanation": "駅へ行きます（えきへいきます）＝ 去車站",
+      "source": "local",
+      "id": "457c026b-182a-4a05-a25f-ccd826cf1577",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____を勉強します",
+      "answer": "日本語",
+      "choices": [
+        "先生",
+        "書く",
+        "大きい",
+        "日本語"
+      ],
+      "explanation": "日本語を勉強します（にほんごをべんきょうします）＝ 學日文",
+      "source": "local",
+      "id": "a05e1483-7300-4329-a7fd-90cd7651d18e",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____を書きます",
+      "answer": "手紙",
+      "choices": [
+        "日本語",
+        "手紙",
+        "本",
+        "来る"
+      ],
+      "explanation": "手紙を書きます（てがみをかきます）＝ 寫信",
+      "source": "local",
+      "id": "29e7b2e6-5b26-4dd0-af7f-146b3a0c3139",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____と話します",
+      "answer": "友達",
+      "choices": [
+        "どこ",
+        "先生",
+        "友達",
+        "読む"
+      ],
+      "explanation": "友達と話します（ともだちとはなします）＝ 和朋友說話",
+      "source": "local",
+      "id": "9c0b58a3-c441-47f4-9b24-8c11ccc4cd24",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____を見ます",
+      "answer": "映画",
+      "choices": [
+        "行く",
+        "昨日",
+        "日本語",
+        "映画"
+      ],
+      "explanation": "映画を見ます（えいがをみます）＝ 看電影",
+      "source": "local",
+      "id": "4c43082d-bcbe-4eac-ac8d-5b24ceb3cf77",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    },
+    {
+      "kind": "phrase",
+      "mode": "blank",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____を食べます",
+      "answer": "朝ごはん",
+      "choices": [
+        "水",
+        "来る",
+        "朝ごはん",
+        "映画"
+      ],
+      "explanation": "朝ごはんを食べます（あさごはんをたべます）＝ 吃早餐",
+      "source": "local",
+      "id": "21fe8a18-6e0e-4004-86c7-22ed473e099b",
+      "createdAt": 1794310355435,
+      "lastShownAt": 1794311226212,
+      "showCount": 2
+    }
+  ],
+  "reviewQueue": [
+    {
+      "kind": "reading",
+      "prompt": "3/20日をえたメスペジーなのかいかなのか",
+      "sentence": "冬のかに「ズワイガニ」をとる漁が始まった",
+      "answer": "いか",
+      "choices": [
+        "鯧",
+        "鯖",
+        "いか",
+        "鯨"
+      ],
+      "explanation": "題中の日程のみを考えるので、「鯖」を選出し。",
+      "mode": "inference",
+      "id": "a5becee8-7e26-4dbf-a0c5-1f245442d9ce",
+      "wrongCount": 1,
+      "rightCount": 0,
+      "ease": 2.5,
+      "dueAt": 1794396563595,
+      "updatedAt": 1794310163595
+    },
+    {
+      "kind": "reading",
+      "prompt": "本文の内容に最も近いものはどれですか。",
+      "sentence": "京都府八幡市　子どもを産んで休んでいた市長が仕事に戻った",
+      "answer": "これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "choices": [
+        "これからは職員と一緒に仕事を進めていきたい」と話しました。",
+        "無関係な宣伝",
+        "数式の説明",
+        "本文と反対の主張"
+      ],
+      "explanation": "根拠：これからは職員と一緒に仕事を進めていきたい」と話しました。",
+      "mode": "detail",
+      "id": "208e2555-5212-45ed-8437-14d150bcb21f",
+      "wrongCount": 1,
+      "rightCount": 0,
+      "ease": 2.5,
+      "dueAt": 1794396573751,
+      "updatedAt": 1794310173751
+    },
+    {
+      "kind": "phrase",
+      "prompt": "選出填入空格的正確單字",
+      "sentence": "____へ行きます",
+      "answer": "駅",
+      "choices": [
+        "見る",
+        "駅",
+        "どう",
+        "明日"
+      ],
+      "explanation": "駅へ行きます（えきへいきます）＝ 去車站",
+      "mode": "blank",
+      "id": "dfab5ca8-8742-483e-a181-3edf8759f994",
+      "wrongCount": 2,
+      "rightCount": 0,
+      "ease": 2.3,
+      "dueAt": 1794397637292,
+      "updatedAt": 1794311237292
+    }
+  ],
+  "practiceLog": [
+    {
+      "module": "reading",
+      "correct": true,
+      "id": "57297114-67b9-4f7e-b141-7df38a814afb",
+      "at": 1794310176709
+    },
+    {
+      "module": "phrase",
+      "correct": true,
+      "id": "9ee9d92a-3381-4e8d-9de7-dc5f75e05dc6",
+      "at": 1794310358704
+    },
+    {
+      "module": "phrase",
+      "correct": true,
+      "id": "b28f5e98-7596-4041-a9e2-7adb724e778b",
+      "at": 1794310363799
+    },
+    {
+      "module": "phrase",
+      "correct": true,
+      "id": "4621f2e3-5aae-47f9-b03e-a2bbf7a8b946",
+      "at": 1794310368316
+    },
+    {
+      "module": "phrase",
+      "correct": true,
+      "id": "cd53cab0-6c8f-4756-b080-443d53960e2d",
+      "at": 1794311235473
+    }
+  ],
+  "flaggedQuizzes": []
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { ChoiceNotes } from '../components/ChoiceNotes'
 import { FlagQuestionButton, QuestionBlock } from '../components/FlagQuestionButton'
 import { PracticeHeader } from '../components/PracticeHeader'
 import { SpeakButton } from '../components/SpeakButton'
@@ -110,6 +111,7 @@ export function ReviewPractice() {
                 key={current.id}
                 item={{
                   kind: current.kind,
+                  mode: current.mode,
                   prompt: current.prompt,
                   sentence: current.sentence,
                   answer: current.answer,
@@ -145,6 +147,13 @@ export function ReviewPractice() {
               {feedback === 'bad' && `${t('kana.wrong')} → ${current.answer}`}
             </div>
             {feedback && current.explanation && <p className="muted">{current.explanation}</p>}
+            {feedback && (
+              <ChoiceNotes
+                answer={current.answer}
+                selected={selected}
+                choiceExplanations={current.choiceExplanations}
+              />
+            )}
           </QuestionBlock>
           <div className="btn-row">
             {!feedback ? (

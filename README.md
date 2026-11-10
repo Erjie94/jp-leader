@@ -143,16 +143,18 @@ D:\Desktop\JP_leader\release\日習 JP Leader-0.1.0-win-x64.exe
 
 1. **首次開啟**：選介面語言  
 2. **模型**：可在設定載入；曾下載過可自動讀取快取（供 AI 產單字）  
-3. **單字／片語**：選擇題；題庫會保存並重用  
+3. **單字**：管理時同步三種考試模式題庫；**片語**：確認儲存時產挖空題＋全選項註解  
 
 ## 功能
 
 1. 五十音練習（平／片假名、拼音）  
-2. 單字練習（選擇題 + 題庫；手動／CSV／AI 產字）  
-3. 片語練習（挖空選擇題）  
+2. 單字練習（三種模式選擇題；儲存時寫入對應 mode 題庫）  
+3. 片語練習（挖空選擇題；儲存時產題＋全選項註解）  
 4. 短文練習（貼上文章 → 生成 3～5 題閱讀選擇題並儲存）  
 5. 錯題複習（簡易間隔）  
 6. 設定：繁中／日文、離線 WebLLM、AI 產單字題  
+
+測試：`npm run test`（Vitest；單字三模式／片語挖空與註解）  
 
 ### 短文產題資料格式（模型互動）
 
@@ -164,7 +166,7 @@ type|題幹|答案|選項1/選項2/選項3/選項4|說明
 
 - `type`：`main`（主旨）／`detail`（細節）／`inference`（推論）／`vocab`（語彙）
 - 產題管線：本機 WebLLM →（可選）OpenAI 相容連網 API → 離線啟發式補足到 3～5 題
-- 儲存於 IndexedDB `readingPassages`（原文 + 題組）  
+- 與單字／片語／題庫一併寫入專案檔 `data/library.json`（檔案式，跨瀏覽器共用）
 
 
 ## 單字 CSV 標準格式
@@ -192,6 +194,28 @@ type|題幹|答案|選項1/選項2/選項3/選項4|說明
 `Qwen3-1.7B` 僅建議對話／批改，不建議產題。  
 五十音／單字測驗不需模型。
 
+## 資料儲存（檔案式）
+
+所有題目與詞庫寫在：
+
+```text
+D:\Desktop\JP_leader\data\library.json
+```
+
+| 欄位 | 內容 |
+|------|------|
+| `vocab` | 單字庫 |
+| `phrases` | 片語庫 |
+| `readingPassages` | 短文＋閱讀題組 |
+| `quizBank` | 已存選擇題 |
+| `reviewQueue` | 錯題複習 |
+| `practiceLog` | 練習紀錄 |
+| `flaggedQuizzes` | 標記有問題的題 |
+
+`npm run dev`／`dev:app`／`preview` 時，Chrome、Edge、Electron 都透過 `/api/library` 讀寫**同一檔**，因此題目會共通。  
+舊版瀏覽器 IndexedDB 資料會在首次啟動時自動遷移到此檔。  
+打包後的 exe 則寫入 Electron `userData/data/library.json`。
+
 ## 技術
 
-Vite + React + TypeScript + Electron + IndexedDB + i18next + `@mlc-ai/web-llm`
+Vite + React + TypeScript + Electron + 檔案題庫（`data/library.json`）+ i18next + `@mlc-ai/web-llm`

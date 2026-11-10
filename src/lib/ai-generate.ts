@@ -1,4 +1,5 @@
-import { bulkAddVocab, saveQuizzes, type VocabEntry } from './db'
+import { bulkAddVocab, listVocab, type VocabEntry } from './db'
+import { syncVocabEntriesQuizzes } from './vocab-quiz-sync'
 import {
   CHOICE_COUNT,
   MAX_FAILS_MCQ,
@@ -223,18 +224,12 @@ export async function generateContentWithAi(
   const vocabGenerated = clipped.length
   const entries = clipped.map((q) => vocabEntryFromMcq(q))
   await bulkAddVocab(entries)
-  const vocabAdded = await saveQuizzes(
-    clipped.map((q) => ({
-      kind: 'vocab' as const,
-      mode: 'choice',
-      prompt: q.prompt,
-      sentence: q.sentence,
-      answer: q.answer,
-      choices: q.choices,
-      explanation: q.explanation,
-      source: 'model' as const,
-    })),
+  // 寫入單字庫後依三模式同步題庫（不再使用 mode:'choice'）
+  const all = await listVocab()
+  const justAdded = all.filter((v) =>
+    entries.some((e) => e.word === v.word && e.meaning === v.meaning),
   )
+  const vocabAdded = await syncVocabEntriesQuizzes(justAdded.length ? justAdded : all.slice(-entries.length))
   onProgress?.({ stage: 'vocab', message: 'vocab-done', vocabAdded })
 
   if (vocabGenerated === 0) {
