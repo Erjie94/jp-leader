@@ -7,6 +7,7 @@
     "kana": "五十音",
     "vocab": "単語",
     "phrase": "フレーズ",
+    "reading": "読解",
     "review": "復習",
     "settings": "設定"
   },
@@ -16,7 +17,7 @@
     "next": "次へ",
     "pickLang": "表示言語を選ぶ",
     "readyTitle": "準備完了",
-    "readyBody": "おすすめ順：五十音 → 単語 → フレーズ。",
+    "readyBody": "おすすめ順：五十音 → 単語 → フレーズ → 読解。",
     "startKana": "まず五十音から",
     "goHome": "ホームを見る"
   },
@@ -34,12 +35,13 @@
     "statAccuracy": "正答率",
     "statDue": "復習待ち",
     "statBank": "バンク合計",
-    "bankBreakdown": "バンク：単語 {{vocab}} · フレーズ {{phrase}}",
-    "moduleBreakdown": "回数：五十音 {{kana}} · 単語 {{vocab}} · フレーズ {{phrase}} · 復習 {{review}}",
+    "bankBreakdown": "バンク：単語 {{vocab}} · フレーズ {{phrase}} · 読解 {{reading}}",
+    "moduleBreakdown": "回数：五十音 {{kana}} · 単語 {{vocab}} · フレーズ {{phrase}} · 読解 {{reading}} · 復習 {{review}}",
     "features": {
       "kana": "ひらがな／カタカナ／ローマ字入力",
       "vocab": "選択問題。問題は保存され、時々再出題",
-      "phrase": "穴埋め選択：単語を指定し、正解1＋妨害3で出題"
+      "phrase": "穴埋め選択：単語を指定し、正解1＋妨害3で出題",
+      "reading": "文章を貼り付け、3〜5問の読解選択問題を生成して練習"
     }
   },
   "review": {
@@ -57,7 +59,7 @@
   },
   "backup": {
     "title": "データバックアップ",
-    "hint": "単語・フレーズ・問題バンク・復習・練習ログを JSON で書き出し／取り込み。",
+    "hint": "単語・フレーズ・読解・問題バンク・復習・練習ログを JSON で書き出し／取り込み。",
     "export": "バックアップ書き出し",
     "import": "バックアップ取り込み",
     "exported": "バックアップをダウンロードしました",
@@ -171,6 +173,65 @@
     "lookupOkNoReading": "翻訳は入力済み。読みは確認してください",
     "lookupFail": "自動入力に失敗"
   },
+  "reading": {
+    "title": "読解練習",
+    "flowHint": "ニュースや日常文を貼ると、3〜5問の読解選択問題だけを生成して保存します。",
+    "tabCreate": "貼り付けて生成",
+    "tabLibrary": "読解庫",
+    "tabPlay": "解答中",
+    "createHint": "文章の書き換えではなく「出題」が目的。本機モデル → 任意のオンライン API → オフラインヒューリスティックの順です。",
+    "titleLabel": "タイトル（任意）",
+    "titlePlaceholder": "例：今日のニュース",
+    "pasteLabel": "文章を貼り付け",
+    "pastePlaceholder": "日本語または繁体字の文章を貼り付け…",
+    "charCount": "{{n}} 字（目安 {{min}}～{{max}}）",
+    "questionCount": "問題数（3～5）",
+    "pipelineHint": "出題元：本機 {{local}} · オンライン API {{online}} · 不足時はヒューリスティック",
+    "generate": "問題を生成して保存",
+    "generating": "問題を生成中…",
+    "generated": "{{n}} 問を生成（{{gen}}）し保存しました",
+    "sessionDone": "この読解セットが完了しました",
+    "libraryHint": "保存済み：{{n}}",
+    "empty": "読解がありません。「貼り付けて生成」から追加してください。",
+    "meta": "{{n}} 問 · {{gen}} · {{lang}}",
+    "practice": "練習開始",
+    "delete": "削除",
+    "finish": "完了",
+    "onlineSettings": "オンライン出題設定",
+    "onlineHint": "任意の OpenAI 互換 API（Groq／OpenRouter／自前など）。キーは端末内のみ保存されます。",
+    "onlineBaseUrl": "API Base URL",
+    "onlineModel": "モデル名",
+    "onlineApiKey": "API Key（任意）",
+    "onlineSave": "オンライン設定を保存",
+    "onlineClear": "オンライン設定を消去",
+    "onlineSaved": "オンライン出題設定を保存しました",
+    "onlineCleared": "オンライン出題設定を消去しました",
+    "onlineReady": "設定済み",
+    "onlineOff": "未設定",
+    "generator": {
+      "local": "本機モデル",
+      "online": "オンライン API",
+      "heuristic": "ヒューリスティック",
+      "hybrid": "ハイブリッド"
+    },
+    "type": {
+      "main": "主旨",
+      "detail": "細節",
+      "inference": "推論",
+      "vocab": "語彙"
+    },
+    "stage": {
+      "checking-passage": "文章を確認中…",
+      "generating-local": "本機で出題中…",
+      "local-done": "本機出題完了 {{detail}}",
+      "local-fail": "本機出題スキップ：{{detail}}",
+      "generating-online": "オンライン出題中…",
+      "online-done": "オンライン出題完了 {{detail}}",
+      "online-fail": "オンライン出題スキップ：{{detail}}",
+      "generating-heuristic": "ヒューリスティック補完…",
+      "done": "完了"
+    }
+  },
   "aiGen": {
     "title": "AIで単語／問題を作成",
     "hint": "1問ずつ生成し厳密検証：単語は5～30字の短文・四択。形式不正や切捨ては自動再試行。まずは少なめが安定です。",
@@ -213,7 +274,8 @@
     "clearAll": "マークをすべてクリア",
     "kind": {
       "vocab": "単語",
-      "phrase": "フレーズ"
+      "phrase": "フレーズ",
+      "reading": "読解"
     },
     "choices": "選択肢",
     "answer": "正解",

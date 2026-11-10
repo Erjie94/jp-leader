@@ -8,6 +8,7 @@ import { Home } from './pages/Home'
 import { KanaPractice } from './pages/KanaPractice'
 import { Onboarding } from './pages/Onboarding'
 import { PhrasePractice } from './pages/PhrasePractice'
+import { ReadingPractice } from './pages/ReadingPractice'
 import { ReviewPractice } from './pages/ReviewPractice'
 import { Settings } from './pages/Settings'
 import { VocabPractice } from './pages/VocabPractice'
@@ -30,6 +31,7 @@ export default function App() {
                 <Route path="kana" element={<KanaPractice />} />
                 <Route path="vocab" element={<VocabPractice />} />
                 <Route path="phrase" element={<PhrasePractice />} />
+                <Route path="reading" element={<ReadingPractice />} />
                 <Route path="review" element={<ReviewPractice />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

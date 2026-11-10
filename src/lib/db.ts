@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
+import type { ReadingPassageRecord } from './reading-spec'
 
 export interface VocabEntry {
   id: string
@@ -45,7 +46,7 @@ export interface StoredQuiz {
 
 export interface ReviewItem {
   id: string
-  kind: 'vocab' | 'phrase'
+  kind: 'vocab' | 'phrase' | 'reading'
   prompt: string
   sentence?: string
   answer: string
@@ -134,13 +135,18 @@ interface JpLeaderDB extends DBSchema {
     value: FlaggedQuiz
     indexes: { 'by-fingerprint': string; 'by-kind': FlaggedKind }
   }
+  readingPassages: {
+    key: string
+    value: ReadingPassageRecord
+    indexes: { 'by-created': number }
+  }
 }
 
 let dbPromise: Promise<IDBPDatabase<JpLeaderDB>> | null = null
 
 function getDb() {
   if (!dbPromise) {
-    dbPromise = openDB<JpLeaderDB>('jp-leader', 5, {
+    dbPromise = openDB<JpLeaderDB>('jp-leader', 6, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           const store = db.createObjectStore('vocab', { keyPath: 'id' })
@@ -167,6 +173,10 @@ function getDb() {
           const phrases = db.createObjectStore('phrases', { keyPath: 'id' })
           phrases.createIndex('by-level', 'level')
           phrases.createIndex('by-phrase', 'phrase')
+        }
+        if (oldVersion < 6) {
+          const reading = db.createObjectStore('readingPassages', { keyPath: 'id' })
+          reading.createIndex('by-created', 'createdAt')
         }
       },
     })
@@ -289,6 +299,53 @@ export async function bulkAddPhrases(
 export async function clearPhrases(): Promise<void> {
   const db = await getDb()
   await db.clear('phrases')
+}
+
+export async function listReadingPassages(): Promise<ReadingPassageRecord[]> {
+  const db = await getDb()
+  const list = await db.getAllFromIndex('readingPassages', 'by-created')
+  return list.reverse()
+}
+
+export async function getReadingPassage(id: string): Promise<ReadingPassageRecord | undefined> {
+  const db = await getDb()
+  return db.get('readingPassages', id)
+}
+
+export async function addReadingPassage(
+  entry: Omit<ReadingPassageRecord, 'id' | 'createdAt' | 'lastPracticedAt'>,
+): Promise<ReadingPassageRecord> {
+  const db = await getDb()
+  const record: ReadingPassageRecord = {
+    ...entry,
+    id: crypto.randomUUID(),
+    createdAt: Date.now(),
+    lastPracticedAt: 0,
+  }
+  await db.put('readingPassages', record)
+  return record
+}
+
+export async function touchReadingPassagePracticed(id: string): Promise<void> {
+  const db = await getDb()
+  const row = await db.get('readingPassages', id)
+  if (!row) return
+  await db.put('readingPassages', { ...row, lastPracticedAt: Date.now() })
+}
+
+export async function deleteReadingPassage(id: string): Promise<void> {
+  const db = await getDb()
+  await db.delete('readingPassages', id)
+}
+
+export async function clearReadingPassages(): Promise<void> {
+  const db = await getDb()
+  await db.clear('readingPassages')
+}
+
+export async function countReadingPassages(): Promise<number> {
+  const db = await getDb()
+  return db.count('readingPassages')
 }
 
 export async function normalizeEnglishMeanings(
@@ -707,10 +764,11 @@ function withoutLevel<T extends object>(row: T): T {
 export async function exportAllData() {
   const db = await getDb()
   return {
-    version: 6,
+    version: 7,
     exportedAt: new Date().toISOString(),
     vocab: (await db.getAll('vocab')).map(withoutLevel),
     phrases: (await db.getAll('phrases')).map(withoutLevel),
+    readingPassages: await db.getAll('readingPassages'),
     quizBank: (await db.getAll('quizBank')).map(withoutLevel),
     reviewQueue: (await db.getAll('reviewQueue')).map(withoutLevel),
     practiceLog: (await db.getAll('practiceLog')).map(withoutLevel),
@@ -721,6 +779,7 @@ export async function exportAllData() {
 export async function importAllData(data: {
   vocab?: VocabEntry[]
   phrases?: PhraseEntry[]
+  readingPassages?: ReadingPassageRecord[]
   quizBank?: StoredQuiz[]
   reviewQueue?: ReviewItem[]
   practiceLog?: PracticeEvent[]
@@ -735,6 +794,11 @@ export async function importAllData(data: {
   if (data.phrases?.length) {
     const tx = db.transaction('phrases', 'readwrite')
     for (const p of data.phrases) await tx.store.put(withoutLevel(p))
+    await tx.done
+  }
+  if (data.readingPassages?.length) {
+    const tx = db.transaction('readingPassages', 'readwrite')
+    for (const r of data.readingPassages) await tx.store.put(r)
     await tx.done
   }
   if (data.quizBank?.length) {

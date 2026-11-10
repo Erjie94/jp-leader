@@ -1,5 +1,6 @@
 import {
   countQuizzes,
+  countReadingPassages,
   deleteQuizById,
   drawQuizzes,
   listQuizzes,
@@ -193,5 +194,6 @@ export async function bankStats() {
   return {
     vocab: await countQuizzes('vocab'),
     phrase: await countQuizzes('phrase'),
+    reading: await countReadingPassages(),
   }
 }

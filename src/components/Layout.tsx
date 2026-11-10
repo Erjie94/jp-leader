@@ -35,6 +35,7 @@ export function Layout() {
     ['/kana', 'nav.kana', 'あ'],
     ['/vocab', 'nav.vocab', '語'],
     ['/phrase', 'nav.phrase', '句'],
+    ['/reading', 'nav.reading', '読'],
     ['/review', 'nav.review', '復'],
     ['/settings', 'nav.settings', '設'],
   ] as const

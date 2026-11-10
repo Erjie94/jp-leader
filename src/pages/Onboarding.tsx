@@ -81,6 +81,7 @@ export function Onboarding() {
               <li>{t('nav.kana')} — {t('home.features.kana')}</li>
               <li>{t('nav.vocab')} — {t('home.features.vocab')}</li>
               <li>{t('nav.phrase')} — {t('home.features.phrase')}</li>
+              <li>{t('nav.reading')} — {t('home.features.reading')}</li>
             </ol>
             <div className="btn-row">
               <button type="button" className="btn btn-accent" onClick={() => finish('/kana')}>

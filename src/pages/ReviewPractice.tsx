@@ -89,6 +89,8 @@ export function ReviewPractice() {
               <Link to="/vocab">{t('nav.vocab')}</Link>
               {' · '}
               <Link to="/phrase">{t('nav.phrase')}</Link>
+              {' · '}
+              <Link to="/reading">{t('nav.reading')}</Link>
             </p>
           )}
         </>

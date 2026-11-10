@@ -7,6 +7,7 @@
     "kana": "五十音",
     "vocab": "單字",
     "phrase": "片語",
+    "reading": "短文",
     "review": "複習",
     "settings": "設定"
   },
@@ -16,7 +17,7 @@
     "next": "下一步",
     "pickLang": "選擇介面語言",
     "readyTitle": "準備開始",
-    "readyBody": "建議依序練習：五十音 → 單字 → 片語。",
+    "readyBody": "建議依序練習：五十音 → 單字 → 片語 → 短文。",
     "startKana": "先練五十音",
     "goHome": "先看首頁總覽"
   },
@@ -34,12 +35,13 @@
     "statAccuracy": "正確率",
     "statDue": "待複習",
     "statBank": "題庫總量",
-    "bankBreakdown": "題庫：單字 {{vocab}} · 片語 {{phrase}}",
-    "moduleBreakdown": "模組次數：五十音 {{kana}} · 單字 {{vocab}} · 片語 {{phrase}} · 複習 {{review}}",
+    "bankBreakdown": "題庫：單字 {{vocab}} · 片語 {{phrase}} · 短文 {{reading}}",
+    "moduleBreakdown": "模組次數：五十音 {{kana}} · 單字 {{vocab}} · 片語 {{phrase}} · 短文 {{reading}} · 複習 {{review}}",
     "features": {
       "kana": "平假名／片假名／拼音打字",
       "vocab": "選擇題測驗；題庫會保存並偶爾重現",
-      "phrase": "片語挖空選擇題：標註單字後以 1 正確＋3 干擾出題"
+      "phrase": "片語挖空選擇題：標註單字後以 1 正確＋3 干擾出題",
+      "reading": "貼上文章後生成 3～5 題閱讀選擇題並練習"
     }
   },
   "review": {
@@ -57,7 +59,7 @@
   },
   "backup": {
     "title": "資料備份",
-    "hint": "匯出／匯入單字庫、片語庫、題庫、錯題複習與練習紀錄（JSON）。",
+    "hint": "匯出／匯入單字庫、片語庫、短文題組、題庫、錯題複習與練習紀錄（JSON）。",
     "export": "匯出備份",
     "import": "匯入備份",
     "exported": "已下載備份檔",
@@ -171,6 +173,65 @@
     "lookupOkNoReading": "已填入翻譯；讀音請自行確認",
     "lookupFail": "自動填入失敗"
   },
+  "reading": {
+    "title": "短文練習",
+    "flowHint": "貼上新聞或日常文章，系統只負責生成 3～5 題閱讀選擇題並儲存練習。",
+    "tabCreate": "貼上產題",
+    "tabLibrary": "短文庫",
+    "tabPlay": "作答中",
+    "createHint": "重點是「出題」，不會改寫你的文章。優先本機模型 → 可選連網 API → 離線啟發式補足。",
+    "titleLabel": "標題（可空白）",
+    "titlePlaceholder": "例如：今日新聞摘要",
+    "pasteLabel": "貼上短文",
+    "pastePlaceholder": "在此貼上日文或繁中文章…",
+    "charCount": "{{n}} 字（建議 {{min}}～{{max}}）",
+    "questionCount": "題數（3～5）",
+    "pipelineHint": "產題來源：本機模型 {{local}} · 連網 API {{online}} · 不足時自動用離線啟發式",
+    "generate": "生成題目並儲存",
+    "generating": "正在生成題目…",
+    "generated": "已生成 {{n}} 題（{{gen}}）並寫入短文庫",
+    "sessionDone": "本篇短文練習完成",
+    "libraryHint": "已存短文題組：{{n}}",
+    "empty": "尚無短文。請先到「貼上產題」貼文並生成。",
+    "meta": "{{n}} 題 · {{gen}} · {{lang}}",
+    "practice": "開始練習",
+    "delete": "刪除",
+    "finish": "完成",
+    "onlineSettings": "連網產題設定",
+    "onlineHint": "選填 OpenAI 相容 API（如 Groq／OpenRouter／自架）。金鑰只存在本機瀏覽器，不會上傳到本專案伺服器。",
+    "onlineBaseUrl": "API Base URL",
+    "onlineModel": "模型名稱",
+    "onlineApiKey": "API Key（可空白）",
+    "onlineSave": "儲存連網設定",
+    "onlineClear": "清除連網設定",
+    "onlineSaved": "已儲存連網產題設定",
+    "onlineCleared": "已清除連網產題設定",
+    "onlineReady": "已設定",
+    "onlineOff": "未設定",
+    "generator": {
+      "local": "本機模型",
+      "online": "連網 API",
+      "heuristic": "離線啟發式",
+      "hybrid": "混合"
+    },
+    "type": {
+      "main": "主旨",
+      "detail": "細節",
+      "inference": "推論",
+      "vocab": "語彙"
+    },
+    "stage": {
+      "checking-passage": "檢查短文…",
+      "generating-local": "本機模型產題中…",
+      "local-done": "本機產題完成 {{detail}}",
+      "local-fail": "本機產題略過：{{detail}}",
+      "generating-online": "連網產題中…",
+      "online-done": "連網產題完成 {{detail}}",
+      "online-fail": "連網產題略過：{{detail}}",
+      "generating-heuristic": "離線啟發式補題…",
+      "done": "完成"
+    }
+  },
   "aiGen": {
     "title": "AI 建立單字與題目",
     "hint": "逐筆產題並嚴格驗證：單字為 5～30 字單句四選一。格式不符或截斷會自動重試。建議先少題數。",
@@ -213,7 +274,8 @@
     "clearAll": "清空全部標記",
     "kind": {
       "vocab": "單字",
-      "phrase": "片語"
+      "phrase": "片語",
+      "reading": "短文"
     },
     "choices": "選項",
     "answer": "正解",

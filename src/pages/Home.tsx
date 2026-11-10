@@ -14,7 +14,7 @@ export function Home() {
     accuracy: number
     byModule: Record<string, number>
   } | null>(null)
-  const [banks, setBanks] = useState({ vocab: 0, phrase: 0 })
+  const [banks, setBanks] = useState({ vocab: 0, phrase: 0, reading: 0 })
   const [due, setDue] = useState(0)
 
   useEffect(() => {
@@ -46,6 +46,13 @@ export function Home() {
       to: '/phrase',
       title: t('nav.phrase'),
       desc: t('home.features.phrase'),
+      cta: t('home.startNow'),
+    },
+    {
+      step: 4,
+      to: '/reading',
+      title: t('nav.reading'),
+      desc: t('home.features.reading'),
       cta: t('home.startNow'),
     },
   ]
@@ -99,18 +106,23 @@ export function Home() {
               <span className="muted">{t('home.statDue')}</span>
             </div>
             <div>
-              <strong>{banks.vocab + banks.phrase}</strong>
+              <strong>{banks.vocab + banks.phrase + banks.reading}</strong>
               <span className="muted">{t('home.statBank')}</span>
             </div>
           </div>
           <p className="muted">
-            {t('home.bankBreakdown', { vocab: banks.vocab, phrase: banks.phrase })}
+            {t('home.bankBreakdown', {
+              vocab: banks.vocab,
+              phrase: banks.phrase,
+              reading: banks.reading,
+            })}
           </p>
           <p className="muted">
             {t('home.moduleBreakdown', {
               kana: stats.byModule.kana ?? 0,
               vocab: stats.byModule.vocab ?? 0,
               phrase: stats.byModule.phrase ?? 0,
+              reading: stats.byModule.reading ?? 0,
               review: stats.byModule.review ?? 0,
             })}
           </p>
