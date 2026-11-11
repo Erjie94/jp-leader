@@ -216,6 +216,51 @@ D:\Desktop\JP_leader\data\library.json
 舊版瀏覽器 IndexedDB 資料會在首次啟動時自動遷移到此檔。  
 打包後的 exe 則寫入 Electron `userData/data/library.json`。
 
+## 個人主機＋Cloudflare Tunnel（Chromebook 友善）
+
+目標：在**另一台 Windows**常駐託管前端與題庫，經 Tunnel 得到 HTTPS 網址；Chromebook **只開瀏覽器**即可練習並自動共用題庫（無需手動匯出／匯入）。  
+限制：主機關機或 Tunnel 斷線時無法同步。
+
+### 一、驅動主機（Windows）設定
+
+1. 安裝 Node.js，把本專案放到主機（git clone 或複製）
+2. 安裝依賴並建置：
+
+```powershell
+cd <專案路徑>
+npm.cmd install
+copy .env.host.example .env.host
+# 編輯 .env.host：設一組長隨機 LIBRARY_TOKEN（≥32 字元）
+npm.cmd run host:build
+```
+
+服務預設聽 `http://127.0.0.1:8787`，題庫寫入主機上的 `data/library.json`。  
+建議用「工作排程器」開機啟動：`npm.cmd run host`（需先有 `dist/`）。
+
+3. 安裝 [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/)，建立 Tunnel，把公開 hostname 指到 `http://127.0.0.1:8787`。  
+   範本：[docs/cloudflared-config.example.yml](docs/cloudflared-config.example.yml)
+
+### 二、Chromebook
+
+1. 開啟 `https://你的hostname`
+2. **設定** → 「個人主機／題庫同步」→ 填入與 `.env.host` 相同的 **Token**（網址可留空＝同源）
+3. 「測試連線」成功後即可練習；新增單字會寫回主機
+
+Chromebook 會預設關閉「啟動時自動載入模型」以省電。
+
+### 三、目前這台開發機（可選）
+
+若要讓本機 Electron／`npm run dev` 也寫入**同一台主機**的題庫：
+
+1. 設定頁填 **主機 HTTPS 網址**＋同一 Token
+2. 儲存並測試連線
+
+### 四、本機快速驗證 API（主機上）
+
+```powershell
+curl.exe -s -H "Authorization: Bearer 你的TOKEN" http://127.0.0.1:8787/api/library
+```
+
 ## 技術
 
-Vite + React + TypeScript + Electron + 檔案題庫（`data/library.json`）+ i18next + `@mlc-ai/web-llm`
+Vite + React + TypeScript + Electron + 個人主機題庫（`data/library.json`）+ i18next + `@mlc-ai/web-llm`

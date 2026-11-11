@@ -3,7 +3,6 @@ export interface MigratableQuiz {
   kind: string
   mode?: string
   prompt: string
-  [key: string]: unknown
 }
 
 /** 單字練習三種考試模式（對應題庫 mode） */

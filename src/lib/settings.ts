@@ -1,3 +1,5 @@
+import { isLowPowerWebClient } from './device'
+
 export type AppLanguage = 'zh-TW' | 'ja'
 
 export interface AiGenPrefs {
@@ -14,6 +16,10 @@ export interface AppSettings {
   downloadedModelIds: string[]
   /** AI 建立單字資料的偏好 */
   aiGen: AiGenPrefs
+  /** 個人主機基底 URL（Tunnel HTTPS）；同源開 Tunnel 網址時可留空 */
+  hostBaseUrl: string
+  /** 與主機 LIBRARY_TOKEN 相同的 Bearer token */
+  hostToken: string
 }
 
 const KEY = 'jp-leader-settings'
@@ -22,12 +28,18 @@ const defaultAiGen: AiGenPrefs = {
   vocabCount: 12,
 }
 
+function defaultAutoLoadModel(): boolean {
+  return !isLowPowerWebClient()
+}
+
 const defaults: AppSettings = {
   language: 'zh-TW',
   modelId: 'gemma-2-2b-jpn-it-q4f16_1-MLC',
   autoLoadModel: true,
   downloadedModelIds: [],
   aiGen: { ...defaultAiGen },
+  hostBaseUrl: '',
+  hostToken: '',
 }
 
 function clampCount(n: unknown, min: number, max: number, fallback: number): number {
@@ -42,10 +54,21 @@ function normalizeAiGen(raw: Partial<AiGenPrefs> | undefined): AiGenPrefs {
   }
 }
 
+function normalizeHostUrl(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  return raw.trim().replace(/\/+$/, '')
+}
+
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { ...defaults, aiGen: { ...defaultAiGen } }
+    if (!raw) {
+      return {
+        ...defaults,
+        autoLoadModel: defaultAutoLoadModel(),
+        aiGen: { ...defaultAiGen },
+      }
+    }
     const parsed = JSON.parse(raw) as Partial<AppSettings> & {
       level?: string
       readingPromptLang?: string
@@ -61,14 +84,23 @@ export function loadSettings(): AppSettings {
     return {
       language: parsed.language ?? defaults.language,
       modelId: parsed.modelId ?? defaults.modelId,
-      autoLoadModel: parsed.autoLoadModel !== false,
+      autoLoadModel:
+        typeof parsed.autoLoadModel === 'boolean'
+          ? parsed.autoLoadModel
+          : defaultAutoLoadModel(),
       downloadedModelIds: Array.isArray(parsed.downloadedModelIds)
         ? parsed.downloadedModelIds.filter((x): x is string => typeof x === 'string')
         : [],
       aiGen: normalizeAiGen(parsed.aiGen),
+      hostBaseUrl: normalizeHostUrl(parsed.hostBaseUrl),
+      hostToken: typeof parsed.hostToken === 'string' ? parsed.hostToken.trim() : '',
     }
   } catch {
-    return { ...defaults, aiGen: { ...defaultAiGen } }
+    return {
+      ...defaults,
+      autoLoadModel: defaultAutoLoadModel(),
+      aiGen: { ...defaultAiGen },
+    }
   }
 }
 
@@ -81,6 +113,10 @@ export function saveSettings(next: Partial<AppSettings>): AppSettings {
       ? normalizeAiGen({ ...current.aiGen, ...next.aiGen })
       : current.aiGen,
     downloadedModelIds: next.downloadedModelIds ?? current.downloadedModelIds,
+    hostBaseUrl:
+      next.hostBaseUrl !== undefined ? normalizeHostUrl(next.hostBaseUrl) : current.hostBaseUrl,
+    hostToken:
+      next.hostToken !== undefined ? String(next.hostToken).trim() : current.hostToken,
   }
   localStorage.setItem(KEY, JSON.stringify(merged))
   return merged
@@ -99,4 +135,16 @@ export function markModelDownloaded(modelId: string): AppSettings {
 
 export function hasDownloadedModel(modelId: string): boolean {
   return loadSettings().downloadedModelIds.includes(modelId)
+}
+
+/** 明確指向遠端主機（開發機／Electron） */
+export function getRemoteHostConfig(): { baseUrl: string; token: string } | null {
+  const s = loadSettings()
+  if (!s.hostBaseUrl || !s.hostToken) return null
+  return { baseUrl: s.hostBaseUrl, token: s.hostToken }
+}
+
+/** 同源開 Tunnel 時只需 token；或遠端主機完整設定 */
+export function getHostAuthToken(): string {
+  return loadSettings().hostToken
 }

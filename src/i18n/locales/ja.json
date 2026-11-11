@@ -62,14 +62,35 @@
     "hint": "問題・単語は data/library.json に保存。開発時は Chrome／Edge／Electron で同一ファイルを共有。手動の JSON 書き出し／取り込みも可能。",
     "libraryPath": "保存先：{{backend}} · {{path}}",
     "backend": {
+      "host": "個人ホスト（Tunnel）",
       "api": "ファイル（data/library.json）",
       "electron": "デスクトップファイル",
-      "idb-fallback": "ブラウザ暫定（ブラウザ間非共有）"
+      "idb-fallback": "ブラウザ暫定（端末間非共有）"
     },
     "export": "バックアップ書き出し",
     "import": "バックアップ取り込み",
     "exported": "バックアップをダウンロードしました",
     "imported": "バックアップを取り込みました"
+  },
+  "host": {
+    "title": "個人ホスト／題庫同期",
+    "hint": "Chromebook：Tunnel の URL を開き Token だけ入力。開発PC：ホストの HTTPS＋Token を入れ、同じ題庫を共有（ホスト停止時は同期不可）。",
+    "baseUrl": "ホストURL（空＝現在ページと同じオリジン）",
+    "token": "個人 Token",
+    "tokenPlaceholder": "ホストの LIBRARY_TOKEN と同じ",
+    "save": "ホスト設定を保存",
+    "test": "接続テスト",
+    "clear": "ホスト設定を消去",
+    "saved": "ホスト設定を保存しました",
+    "cleared": "ホスト設定を消去しました",
+    "testOk": "接続成功：{{path}}",
+    "testFail": "接続失敗：{{detail}}",
+    "statusLine": "同期状態：{{status}} · 前回 {{at}} {{err}}",
+    "status": {
+      "ok": "正常",
+      "error": "エラー",
+      "idle": "未同期"
+    }
   },
   "kana": {
     "title": "五十音練習",
@@ -356,6 +377,7 @@
     "cachedModels": "ダウンロード済みモデル {{n}} 件（本体はローカルキャッシュ）",
     "noCachedModels": "まだモデルを取得していません。初回はオンラインが必要です。",
     "autoLoadModel": "起動時にダウンロード済みモデルを自動読込",
+    "lowPowerModelHint": "Chromebook／低電力端末を検出：自動読込はオフ推奨です。練習にモデルは不要。出題はPCで行ってください。",
     "rememberHint": "言語・モデル・出題設定は自動保存され、次回もそのまま使えます。",
     "loadModel": "選択モデルをダウンロードして読み込む",
     "unloadModel": "モデルを解放（キャッシュは残す）",

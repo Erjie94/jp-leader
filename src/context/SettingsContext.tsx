@@ -22,6 +22,7 @@ interface SettingsContextValue {
   setModelId: (modelId: string) => void
   setAutoLoadModel: (auto: boolean) => void
   setAiGen: (patch: Partial<AiGenPrefs>) => void
+  setHostConfig: (hostBaseUrl: string, hostToken: string) => void
   markModelDownloaded: (modelId: string) => void
 }
 
@@ -53,6 +54,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(saveSettings({ aiGen: { ...loadSettings().aiGen, ...patch } }))
   }, [])
 
+  const setHostConfig = useCallback((hostBaseUrl: string, hostToken: string) => {
+    setSettings(saveSettings({ hostBaseUrl, hostToken }))
+  }, [])
+
   const markModelDownloaded = useCallback((modelId: string) => {
     setSettings(persistModelDownloaded(modelId))
   }, [])
@@ -64,6 +69,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setModelId,
       setAutoLoadModel,
       setAiGen,
+      setHostConfig,
       markModelDownloaded,
     }),
     [
@@ -72,6 +78,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setModelId,
       setAutoLoadModel,
       setAiGen,
+      setHostConfig,
       markModelDownloaded,
     ],
   )

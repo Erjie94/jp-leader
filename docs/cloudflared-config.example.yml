@@ -1,0 +1,17 @@
+# Cloudflare Tunnel 範本（放在驅動主機）
+# 1. 安裝 cloudflared：https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/
+# 2. cloudflared tunnel login
+# 3. cloudflared tunnel create jp-leader
+# 4. 把下方 tunnel id / credentials-file 改成你的
+# 5. 在 Cloudflare Zero Trust / DNS 把 hostname 指到此 tunnel
+# 6. cloudflared tunnel run jp-leader
+#
+# 本機服務須先啟動：npm run host（預設 127.0.0.1:8787）
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: C:\Users\REPLACE\AppData\Local\cloudflared\REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: jp-leader.example.com
+    service: http://127.0.0.1:8787
+  - service: http_status:404

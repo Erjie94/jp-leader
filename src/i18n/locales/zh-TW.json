@@ -62,14 +62,35 @@
     "hint": "題目與詞庫以專案檔案 data/library.json 持久化；開發時 Chrome／Edge／Electron 共用同一檔。仍可手動匯出／匯入 JSON。",
     "libraryPath": "目前儲存：{{backend}} · {{path}}",
     "backend": {
+      "host": "個人主機（Tunnel）",
       "api": "檔案（data/library.json）",
       "electron": "桌面檔案",
-      "idb-fallback": "瀏覽器暫存（無法跨瀏覽器）"
+      "idb-fallback": "瀏覽器暫存（無法跨裝置）"
     },
     "export": "匯出備份",
     "import": "匯入備份",
     "exported": "已下載備份檔",
     "imported": "備份已匯入"
+  },
+  "host": {
+    "title": "個人主機／題庫同步",
+    "hint": "Chromebook：直接開 Tunnel 網址後只填 Token。開發機：可填主機 HTTPS＋Token，與個人主機共用題庫（主機關機則無法同步）。",
+    "baseUrl": "主機網址（可留空＝目前網頁同源）",
+    "token": "個人 Token",
+    "tokenPlaceholder": "與主機 LIBRARY_TOKEN 相同",
+    "save": "儲存主機設定",
+    "test": "測試連線",
+    "clear": "清除主機設定",
+    "saved": "已儲存主機設定",
+    "cleared": "已清除主機設定",
+    "testOk": "連線成功：{{path}}",
+    "testFail": "連線失敗：{{detail}}",
+    "statusLine": "同步狀態：{{status}} · 上次 {{at}} {{err}}",
+    "status": {
+      "ok": "正常",
+      "error": "錯誤",
+      "idle": "尚未同步"
+    }
   },
   "kana": {
     "title": "五十音練習",
@@ -356,6 +377,7 @@
     "cachedModels": "已記錄 {{n}} 個曾下載的模型（權重保存在本機快取）",
     "noCachedModels": "尚未下載過模型；首次載入需連網。",
     "autoLoadModel": "啟動時自動載入已下載的模型",
+    "lowPowerModelHint": "偵測到 Chromebook／低功耗裝置：已預設關閉自動載入模型以省電。練習不必開模型；產題請回電腦操作。",
     "rememberHint": "語言、模型與出題偏好會自動記住，下次開啟不需重設。",
     "loadModel": "下載並載入所選模型",
     "unloadModel": "卸載模型（不刪快取）",

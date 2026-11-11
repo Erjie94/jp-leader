@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import { defineConfig, type Connect, type ViteDevServer } from 'vite'
+import { defineConfig, type Connect } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url))
@@ -66,7 +66,7 @@ function readRequestBody(req: Connect.IncomingMessage): Promise<string> {
   })
 }
 
-function attachLibraryApi(server: ViteDevServer) {
+function attachLibraryApi(server: { middlewares: Connect.Server }) {
   server.middlewares.use('/api/library', (req, res, next) => {
     void (async () => {
       try {

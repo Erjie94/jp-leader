@@ -16,7 +16,9 @@ import {
   type FlaggedQuiz,
 } from '../lib/db'
 import type { LibraryInfo } from '../lib/library-types'
+import { isLowPowerWebClient } from '../lib/device'
 import { applyFlagAiFix, reviewFlaggedWithAi } from '../lib/flag-ai-review'
+import { resetLibraryBackendCache, testHostSync } from '../lib/library-io'
 import { getLoadedModelId, isModelReady } from '../lib/llm'
 import { AVAILABLE_MODELS, getModelOption, modelSupportsQuiz } from '../lib/models'
 import { resetOnboarding } from '../lib/onboarding'
@@ -31,6 +33,7 @@ export function Settings() {
     setModelId,
     setAutoLoadModel,
     setAiGen,
+    setHostConfig,
   } = useSettings()
   const model = useModel()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -45,6 +48,11 @@ export function Settings() {
   const [flagMsg, setFlagMsg] = useState('')
   const [aiReviewBusyId, setAiReviewBusyId] = useState<string | null>(null)
   const [aiReviewAllBusy, setAiReviewAllBusy] = useState(false)
+  const [hostUrlDraft, setHostUrlDraft] = useState(settings.hostBaseUrl)
+  const [hostTokenDraft, setHostTokenDraft] = useState(settings.hostToken)
+  const [hostMsg, setHostMsg] = useState('')
+  const [hostBusy, setHostBusy] = useState(false)
+  const lowPower = isLowPowerWebClient()
 
   const refreshFlagged = useCallback(async () => {
     setFlagged(await listFlaggedQuizzes())
@@ -246,6 +254,7 @@ export function Settings() {
           />
           {t('settings.autoLoadModel')}
         </label>
+        {lowPower && <p className="muted">{t('settings.lowPowerModelHint')}</p>}
         <p className="muted">
           {model.status === 'checking' && t('common.loading')}
           {model.status === 'loading' && t('settings.progress', { p: model.progress })}
@@ -491,6 +500,93 @@ export function Settings() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      <div className="stack">
+        <h3>{t('host.title')}</h3>
+        <p className="muted">{t('host.hint')}</p>
+        <div className="field">
+          <label>{t('host.baseUrl')}</label>
+          <input
+            value={hostUrlDraft}
+            onChange={(e) => setHostUrlDraft(e.target.value)}
+            placeholder="https://jp-leader.example.com"
+            autoComplete="off"
+          />
+        </div>
+        <div className="field">
+          <label>{t('host.token')}</label>
+          <input
+            type="password"
+            value={hostTokenDraft}
+            onChange={(e) => setHostTokenDraft(e.target.value)}
+            placeholder={t('host.tokenPlaceholder')}
+            autoComplete="off"
+          />
+        </div>
+        <div className="btn-row">
+          <button
+            type="button"
+            className="btn btn-accent"
+            disabled={hostBusy}
+            onClick={() => {
+              setHostConfig(hostUrlDraft, hostTokenDraft)
+              resetLibraryBackendCache()
+              setHostMsg(t('host.saved'))
+              void getLibraryStatus().then(setLibraryInfo)
+            }}
+          >
+            {t('host.save')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={hostBusy}
+            onClick={() => {
+              void (async () => {
+                setHostBusy(true)
+                setHostConfig(hostUrlDraft, hostTokenDraft)
+                resetLibraryBackendCache()
+                const result = await testHostSync()
+                setHostMsg(
+                  result.ok
+                    ? t('host.testOk', { path: result.message })
+                    : t('host.testFail', { detail: result.message }),
+                )
+                setLibraryInfo(await getLibraryStatus())
+                setHostBusy(false)
+              })()
+            }}
+          >
+            {hostBusy ? t('common.loading') : t('host.test')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              setHostUrlDraft('')
+              setHostTokenDraft('')
+              setHostConfig('', '')
+              resetLibraryBackendCache()
+              setHostMsg(t('host.cleared'))
+              void getLibraryStatus().then(setLibraryInfo)
+            }}
+          >
+            {t('host.clear')}
+          </button>
+        </div>
+        {hostMsg && <p className="muted">{hostMsg}</p>}
+        {libraryInfo?.syncStatus && (
+          <p className="muted">
+            {t('host.statusLine', {
+              status: t(`host.status.${libraryInfo.syncStatus}`),
+              at: libraryInfo.lastSyncedAt
+                ? new Date(libraryInfo.lastSyncedAt).toLocaleString()
+                : '—',
+              err: libraryInfo.syncError ?? '',
+            })}
+          </p>
         )}
       </div>
 

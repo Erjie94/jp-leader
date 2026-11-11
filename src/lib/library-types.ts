@@ -21,13 +21,16 @@ export interface LibrarySnapshot {
   flaggedQuizzes: FlaggedQuiz[]
 }
 
-export type LibraryBackend = 'api' | 'electron' | 'idb-fallback'
+export type LibraryBackend = 'host' | 'api' | 'electron' | 'idb-fallback'
 
 export interface LibraryInfo {
   backend: LibraryBackend
   path: string
   updatedAt: string
   writable: boolean
+  syncStatus?: 'ok' | 'error' | 'idle'
+  syncError?: string
+  lastSyncedAt?: string
 }
 
 export function emptyLibrarySnapshot(): LibrarySnapshot {
